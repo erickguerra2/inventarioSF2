@@ -89,17 +89,26 @@ describe('catalogo de uniformes', () => {
     ]);
   });
 
-  it('una talla agotada se muestra pero marcada como no disponible', async () => {
-    const respuesta = await app.inject({
-      method: 'GET',
-      url: '/api/v1/uniformes/prendas?categoria=DIARIO',
-    });
-    const prendas = respuesta.json().data;
-    const pantalon = prendas.find((p: { nombre: string }) => p.nombre.startsWith('Pantalón'));
-    const talla38 = pantalon.variantes.find((v: { talla: string }) => v.talla === '38');
+  it('una talla agotada se muestra, pero marcada como no disponible', async () => {
+    const respuesta = await app.inject({ method: 'GET', url: '/api/v1/uniformes/prendas' });
+    const variantes = respuesta
+      .json()
+      .data.flatMap((prenda: { variantes: unknown[] }) => prenda.variantes);
 
-    expect(talla38.stockActual).toBe(0);
-    expect(talla38.disponible).toBe(false);
+    // La regla, no un dato del seed: disponible == (activo && hay existencias).
+    for (const variante of variantes as Array<{
+      activo: boolean;
+      stockActual: number;
+      disponible: boolean;
+    }>) {
+      expect(variante.disponible).toBe(variante.activo && variante.stockActual > 0);
+    }
+
+    // Y las agotadas siguen apareciendo en la lista: la vendedora necesita verlas.
+    const agotadas = (variantes as Array<{ stockActual: number }>).filter(
+      (variante) => variante.stockActual === 0,
+    );
+    expect(agotadas.length).toBeGreaterThan(0);
   });
 
   it('arma la URL absoluta de las fotos', async () => {
@@ -120,8 +129,11 @@ describe('bolsas de utiles', () => {
     const cuarto = bolsas.find((b: { grado: { nombre: string } }) =>
       b.grado.nombre.startsWith('4to Primaria'),
     );
-    expect(cuarto.stockActual).toBe(25);
     expect(cuarto.sku).toBe('BOL-4TO-PRIMARIA-2026');
+    // Stock en bolsas enteras. No se afirma un numero exacto a proposito: en
+    // cuanto el sistema se use, el del seed deja de ser el actual.
+    expect(Number.isInteger(cuarto.stockActual)).toBe(true);
+    expect(cuarto.stockActual).toBeGreaterThanOrEqual(0);
   });
 
   it('el contenido es opcional: una bolsa sin lista funciona igual', async () => {

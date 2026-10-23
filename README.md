@@ -91,7 +91,50 @@ PUT    /bolsas/:id/contenido           # reemplaza la lista completa
 POST   /bolsas/:id/duplicar            # a otro ciclo (o nueva versión en el mismo)
 GET    /bolsas/:id/lista               # para imprimir
 DELETE /bolsas/:id                     # desactiva
+
+GET    /inventario?tipo=&q=&bajoStock=true&incluirInactivos=&page=&perPage=
+GET    /inventario/alertas             # stockActual <= stockMinimo, ordenado por faltante
+GET    /inventario/:itemId
+POST   /inventario/entradas            # lote en una transacción
+POST   /inventario/conteos             # conteo físico -> genera los ajustes
+POST   /inventario/:itemId/movimientos # entrada, ajuste, merma o devolución
+GET    /inventario/:itemId/kardex?desde=&hasta=&page=&perPage=
+GET    /admin/verificar-integridad     # stockActual == SUM(movimientos) en todos los items
 ```
+
+### Cómo se ingresa el inventario
+
+Así se ingresa lo que entra, que es la pantalla que más se usa:
+
+```json
+POST /api/v1/inventario/entradas
+{
+  "motivo": "Compra a proveedor, factura 1182",
+  "lineas": [
+    { "itemId": "...", "cantidad": 25 },
+    { "itemId": "...", "cantidad": 12 }
+  ]
+}
+```
+
+Una transacción, un movimiento `ENTRADA` por línea, todas con el mismo motivo. Dos líneas
+del mismo ítem se **consolidan** en vez de rechazarse. Con `"tipo": "APERTURA"`, este mismo
+endpoint es la carga inicial del inventario.
+
+Tres reglas que conviene tener claras al consumir estos endpoints:
+
+- **La cantidad siempre se manda positiva**; el `tipo` define si entra o sale. Una merma de 2
+  se manda como `{"cantidad": 2, "tipo": "MERMA"}` y el ledger guarda `-2`. Así no existe el
+  caso absurdo de un `AJUSTE_POS` negativo.
+- **Los ajustes y las mermas exigen `motivo`** (`400` si falta). Un ajuste sin explicación es
+  un descuadre futuro.
+- **`VENTA` y `ANULACION_VENTA` no se aceptan aquí.** Esos movimientos los genera el módulo
+  de ventas en la Fase 4; registrarlos a mano ensuciaría el ledger de ventas.
+
+El conteo físico no "corrige" el stock: manda lo que contó y el servidor registra la
+diferencia como `AJUSTE_POS` / `AJUSTE_NEG` con motivo, para que el faltante quede
+documentado. Todos los ajustes de un mismo conteo comparten `refId`, así que el conteo
+completo se reconstruye desde el ledger.
 
 Nota para el frontend: **se vende con `itemId`**, no con el id de la variante ni el de la
 bolsa. El `itemId` es la unidad de inventario, y es lo que recibirá `POST /ventas` en la
@@ -129,7 +172,7 @@ accede a datos.
 |---|---|
 | 0 — Cimientos (TS, Fastify, Prisma, Docker, errores, health) | **Listo** |
 | 1 — Catálogo (uniformes, bolsas, estructura escolar, seed) | **Listo** |
-| 2 — Inventario: entradas, ajustes, conteo, kardex, alertas | Pendiente (`registrarMovimiento` ya existe) |
+| 2 — Inventario: entradas, ajustes, conteo, kardex, alertas | **Listo** |
 | 3 — Auth, usuarios y permisos | Pendiente |
 | 4 — Ventas | Pendiente |
 | 5 — Reportes, corte de caja y despliegue | Pendiente |

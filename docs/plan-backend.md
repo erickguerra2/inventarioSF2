@@ -1112,10 +1112,15 @@ contenido. CRUD más el seed desde `uniformes-ccsf2.md`. El esquema completo (ve
 usuarios, sesiones, ledger) ya está en la base, aunque sus endpoints lleguen después.
 *El frontend ya puede pintar el catálogo completo; los endpoints están en el README.*
 
-**Fase 2 — Inventario y movimientos (2 días)**
-`registrarMovimiento`, entradas, ajustes, conteo físico, kardex, alertas de stock bajo, el
-`CHECK` de stock no negativo y el endpoint de verificación de integridad.
-*Aquí van los tests más duros: concurrencia y no-negatividad.*
+**Fase 2 — Inventario y movimientos — LISTO**
+`registrarMovimiento`, entradas en lote, ajustes, mermas, conteo físico, kardex con saldos,
+alertas de stock bajo, vista unificada de inventario, el `CHECK` de stock no negativo y el
+endpoint de verificación de integridad.
+*Decisión tomada aquí: no existe tabla `Conteo`. Los ajustes de un mismo conteo comparten
+`refId`, y el índice `(refTipo, refId)` permite reconstruirlo desde el ledger — una entidad
+más no agregaba nada que el ledger no responda ya.*
+*Decisión tomada aquí: la API recibe la cantidad como magnitud positiva y el tipo de
+movimiento define el signo. Elimina por construcción el `AJUSTE_POS` de −5.*
 
 **Fase 3 — Auth, usuarios y permisos (1–2 días)**
 Login, hash de contraseñas, los dos roles, middleware `requiereRol`, alta y baja de maestras,

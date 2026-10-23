@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { env } from './config/env.js';
 import { rutasBolsas } from './modules/bolsas/bolsas.routes.js';
 import { rutasEscolar } from './modules/escolar/escolar.routes.js';
+import { rutasAdmin, rutasInventario } from './modules/inventario/inventario.routes.js';
 import { rutasUniformes } from './modules/uniformes/uniformes.routes.js';
 import { errorHandler } from './shared/middleware/errorHandler.js';
 import { prisma } from './shared/prisma.js';
@@ -53,6 +54,8 @@ export async function construirApp(): Promise<FastifyInstance> {
   await app.register(rutasEscolar, { prefix: '/api/v1' });
   await app.register(rutasUniformes, { prefix: '/api/v1/uniformes' });
   await app.register(rutasBolsas, { prefix: '/api/v1/bolsas' });
+  await app.register(rutasInventario, { prefix: '/api/v1/inventario' });
+  await app.register(rutasAdmin, { prefix: '/api/v1/admin' });
 
   return app;
 }
