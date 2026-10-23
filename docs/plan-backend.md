@@ -1137,10 +1137,18 @@ desactivaciones de catálogo.*
 *— En la base se guarda el **sha256** del token de sesión, no el token: si la base se filtra,
 nadie puede resumir una sesión con lo que hay ahí.*
 
-**Fase 4 — Ventas (2–3 días)**
+**Fase 4 — Ventas — LISTO**
 Venta transaccional con locks ordenados, idempotencia, correlativo por secuencia, atribución
 al usuario, alcance "solo mis ventas", anulación con reversa restringida a `ADMIN`, recibo.
-*El corazón del sistema. Test obligatorio: dos maestras vendiendo la última unidad a la vez.*
+*El test obligatorio existe y pasa: dos ventas simultáneas sobre la última unidad dan
+exactamente un `201` y un `409`, y el stock queda en 0. También el doble clic simultáneo con
+la misma `Idempotency-Key`, que en la práctica entra por la rama de carrera del índice único.*
+*Una corrección que salió de construirlo: `registrarMovimiento` rechazaba todo movimiento
+sobre un ítem inactivo, lo que volvía **imposible anular** la venta de una prenda
+descontinuada después. Ahora `ANULACION_VENTA` es la excepción explícita — es justo el
+momento en que hay que poder.*
+*Queda fuera a propósito: el cambio de talla de §4.4 (devolución más entrega en una sola
+operación). El modelo ya lo soporta y son unas 30 líneas sobre lo que existe.*
 
 **Fase 5 — Reportes, corte de caja y puesta en el servidor (2–3 días)**
 Reportes, **corte de caja por maestra** (lo que cada una debe entregar), exportación a

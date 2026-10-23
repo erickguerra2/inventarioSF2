@@ -10,6 +10,7 @@ import { rutasEscolar } from './modules/escolar/escolar.routes.js';
 import { rutasAdmin, rutasInventario } from './modules/inventario/inventario.routes.js';
 import { rutasUniformes } from './modules/uniformes/uniformes.routes.js';
 import { rutasUsuarios } from './modules/usuarios/usuarios.routes.js';
+import { rutasVentas } from './modules/ventas/ventas.routes.js';
 import { cargarSesion } from './shared/middleware/auth.js';
 import { errorHandler } from './shared/middleware/errorHandler.js';
 import { prisma } from './shared/prisma.js';
@@ -97,6 +98,7 @@ export async function construirApp(): Promise<FastifyInstance> {
   await app.register(rutasEscolar, { prefix: '/api/v1' });
   await app.register(rutasUniformes, { prefix: '/api/v1/uniformes' });
   await app.register(rutasBolsas, { prefix: '/api/v1/bolsas' });
+  await app.register(rutasVentas, { prefix: '/api/v1/ventas' });
   await app.register(rutasInventario, { prefix: '/api/v1/inventario' });
   await app.register(rutasAdmin, { prefix: '/api/v1/admin' });
 

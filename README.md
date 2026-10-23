@@ -101,6 +101,12 @@ POST   /bolsas/:id/duplicar            # a otro ciclo (o nueva versión en el mi
 GET    /bolsas/:id/lista               # para imprimir
 DELETE /bolsas/:id                     # desactiva
 
+POST   /ventas                        # cabecera Idempotency-Key OBLIGATORIA
+GET    /ventas?desde=&hasta=&estado=&usuarioId=&page=   # maestra: forzado a las suyas
+GET    /ventas/:id                     # maestra: 404 si no es suya
+GET    /ventas/:id/recibo
+POST   /ventas/:id/anular              # solo ADMIN
+
 GET    /inventario?tipo=&q=&bajoStock=true&incluirInactivos=&page=&perPage=
 GET    /inventario/alertas             # stockActual <= stockMinimo, ordenado por faltante
 GET    /inventario/:itemId
@@ -110,6 +116,47 @@ POST   /inventario/:itemId/movimientos # entrada, ajuste, merma o devolución
 GET    /inventario/:itemId/kardex?desde=&hasta=&page=&perPage=
 GET    /admin/verificar-integridad     # stockActual == SUM(movimientos) en todos los items
 ```
+
+### Cómo se registra una venta
+
+```json
+POST /api/v1/ventas
+Idempotency-Key: 3f1c8e52-...        <-- obligatoria
+
+{
+  "metodoPago": "EFECTIVO",
+  "compradorNombre": "María López",
+  "lineas": [
+    { "itemId": "...", "cantidad": 2 },
+    { "itemId": "...", "cantidad": 1 }
+  ]
+}
+```
+
+**Se vende con `itemId`**, que sirve igual para una talla de uniforme que para una bolsa de
+útiles. **El precio no se manda**: lo pone el servidor. Si el frontend pudiera mandarlo,
+cualquiera se compraría un uniforme a Q1.
+
+Sobre la `Idempotency-Key`, que es lo único que el frontend tiene que hacer bien aquí:
+
+- Generá **un UUID por intento de venta** (por ejemplo al abrir la pantalla de cobro, o al
+  presionar "Cobrar" la primera vez) y reusá **el mismo** en los reintentos.
+- Si la clave ya se usó, el backend responde **`200`** con la venta original y **no** vuelve
+  a descontar inventario. Una venta nueva responde `201`.
+- Clave nueva solo cuando el usuario empieza una venta nueva.
+
+Esto no es decoración: el doble clic en "Cobrar" y el reintento tras un timeout con el WiFi
+del colegio son hechos, no hipótesis.
+
+Otros comportamientos que conviene conocer:
+
+- Dos líneas del mismo ítem **se consolidan** en una.
+- Si una línea no tiene existencias, **se cae la venta completa** con `409`
+  (`STOCK_INSUFICIENTE`, y `details.disponible` dice cuánto hay). No existe la venta a medias.
+- Las ventas **no se editan ni se borran: se anulan**. La anulación devuelve el stock con un
+  movimiento de reversa y la venta sigue existiendo, marcada `ANULADA`.
+- Las líneas guardan el precio y la descripción **congelados**: cambiar el precio hoy no
+  altera el recibo de una venta de ayer.
 
 ### Cómo se ingresa el inventario
 
@@ -169,7 +216,9 @@ muestra el login. La sesión dura 12 h de inactividad y se renueva con el uso.
 | Entradas, ajustes, conteos | sí | **403** |
 | Crear/editar prendas, bolsas, precios | sí | **403** |
 | Administrar usuarios | sí | **403** |
-| Registrar ventas (Fase 4) | sí | sí |
+| Registrar una venta | sí | sí |
+| Ver ventas y reimprimir recibos | todas | **solo las suyas** |
+| Anular una venta | sí | **403** |
 
 El permiso se niega en el backend, no escondiendo botones: el frontend decide qué mostrar
 con `usuario.rol`, pero la regla vive en el servidor. Sin sesión, todo responde `401`.
@@ -217,7 +266,7 @@ accede a datos.
 | 1 — Catálogo (uniformes, bolsas, estructura escolar, seed) | **Listo** |
 | 2 — Inventario: entradas, ajustes, conteo, kardex, alertas | **Listo** |
 | 3 — Auth, usuarios y permisos | **Listo** |
-| 4 — Ventas | Pendiente |
+| 4 — Ventas | **Listo** |
 | 5 — Reportes, corte de caja y despliegue | Pendiente |
 
 Dos cosas que conviene saber mientras tanto:

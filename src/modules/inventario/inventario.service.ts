@@ -58,7 +58,11 @@ export async function registrarMovimiento(tx: Tx, entrada: MovimientoInput) {
   if (!item) {
     throw new NotFound('El item de inventario no existe', { itemId });
   }
-  if (!item.activo) {
+
+  // Un item inactivo no admite movimientos nuevos... salvo deshacer una venta.
+  // Si no, una prenda descontinuada despues de venderse volveria imposible
+  // anular esa venta, que es justo cuando hay que poder.
+  if (!item.activo && tipo !== 'ANULACION_VENTA') {
     throw new Conflict('ITEM_INACTIVO', 'El item esta inactivo y no admite movimientos', {
       itemId,
     });
