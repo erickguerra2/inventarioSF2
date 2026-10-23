@@ -1150,12 +1150,30 @@ momento en que hay que poder.*
 *Queda fuera a propósito: el cambio de talla de §4.4 (devolución más entrega en una sola
 operación). El modelo ya lo soporta y son unas 30 líneas sobre lo que existe.*
 
-**Fase 5 — Reportes, corte de caja y puesta en el servidor (2–3 días)**
-Reportes, **corte de caja por maestra** (lo que cada una debe entregar), exportación a
-CSV/Excel, OpenAPI publicado y tipos generados para React. Y el despliegue de §13: nginx con
-HTTPS, Postgres solo en localhost, servicio que se reinicia solo, backup diario probado.
-*El despliegue conviene ensayarlo una vez en la Fase 1, con el catálogo apenas funcionando:
-descubrir en la última semana que el servidor no corre Node es el peor momento posible.*
+**Fase 5 — Reportes, corte de caja, CSV y OpenAPI — LISTO**
+Corte de caja por maestra y método de pago, ventas agrupadas por día/maestra/tipo/grado,
+tallas más vendidas, existencias valorizadas, bolsas por grado, exportación a CSV y
+`openapi.json` generado de los esquemas Zod.
+*Un bug de fondo que salió al construir esto, y que valía por sí solo toda la fase: las
+columnas de fecha eran `TIMESTAMP` sin zona (el default de Prisma, en contra de lo que dice
+§0 de este documento), y la conversión de zona de los reportes iba **al revés**. Una venta de
+las 23:30 se reportaba al día siguiente, descuadrando los dos cortes de caja. Se migraron a
+`TIMESTAMPTZ` con un `USING ... AT TIME ZONE 'UTC'` explícito, y los límites del día del corte
+ahora los calcula Postgres y no JavaScript, para que no dependan de la zona con la que arranque
+el proceso. Hay una prueba de regresión con una venta nocturna.*
+*Decisión sobre el OpenAPI: los esquemas se generan de Zod, pero la tabla de rutas se escribe
+a mano y una prueba la compara contra las rutas registradas en Fastify, en las dos
+direcciones. Las respuestas se documentan como el sobre `{ data }` y no campo por campo:
+hacerlo exigiría mantener a mano una copia de cada presentador, que es exactamente lo que se
+desincroniza.*
+
+**Fase 5b — Despliegue (§13) — PENDIENTE**
+nginx con HTTPS, Postgres solo en localhost, servicio que se reinicia solo, backup diario
+probado.
+*Bloqueado a propósito por la pregunta 1 de §15: escribir la configuración del servidor antes
+de saber si es un VPS o un hosting compartido sería adivinar. Lo que sí está listo para
+cualquiera de los dos: `npm run build`, `npm start`, `npm run migrate:deploy`, validación del
+entorno al arrancar y la tarea de limpieza de sesiones.*
 
 **Fase 6 — Lo que se pospuso a propósito**
 Alumnos, fotos de uniformes, cambio de talla, PDF del recibo y de la lista de útiles,

@@ -2,18 +2,29 @@ import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { env } from './config/env.js';
+import { construirEspecificacion } from './docs/openapi.js';
 import { rutasAuth } from './modules/auth/auth.routes.js';
 import { rutasBolsas } from './modules/bolsas/bolsas.routes.js';
 import { rutasEscolar } from './modules/escolar/escolar.routes.js';
 import { rutasAdmin, rutasInventario } from './modules/inventario/inventario.routes.js';
+import { rutasReportes } from './modules/reportes/reportes.routes.js';
 import { rutasUniformes } from './modules/uniformes/uniformes.routes.js';
 import { rutasUsuarios } from './modules/usuarios/usuarios.routes.js';
 import { rutasVentas } from './modules/ventas/ventas.routes.js';
-import { cargarSesion } from './shared/middleware/auth.js';
+import { cargarSesion, requiereRol } from './shared/middleware/auth.js';
 import { errorHandler } from './shared/middleware/errorHandler.js';
 import { prisma } from './shared/prisma.js';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Rutas realmente registradas. La usa la prueba de completitud del OpenAPI. */
+    rutasRegistradas: Array<{ metodo: string; ruta: string }>;
+  }
+}
 
 export async function construirApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -25,6 +36,13 @@ export async function construirApp(): Promise<FastifyInstance> {
     bodyLimit: 1_000_000, // 1 MB: ninguna peticion de este sistema necesita mas
     trustProxy: env.esProduccion, // detras de nginx, para que request.ip sea la real
   });
+
+  const rutasRegistradas: Array<{ metodo: string; ruta: string }> = [];
+  app.addHook('onRoute', (ruta) => {
+    const metodos = Array.isArray(ruta.method) ? ruta.method : [ruta.method];
+    for (const metodo of metodos) rutasRegistradas.push({ metodo, ruta: ruta.url });
+  });
+  app.decorate('rutasRegistradas', rutasRegistradas);
 
   await app.register(helmet, { contentSecurityPolicy: false });
 
@@ -93,6 +111,28 @@ export async function construirApp(): Promise<FastifyInstance> {
     return { ok: true, db: 'conectada' };
   });
 
+  // ---------------------------------------------------------------------------
+  // Documentacion. El JSON es el contrato que consume el frontend (tambien se
+  // puede volcar a un archivo con `npm run openapi`, sin levantar el servidor).
+  // En produccion se cierra a ADMIN y no se publica la interfaz grafica: es una
+  // herramienta interna y no hace falta exponer su superficie a internet.
+  // ---------------------------------------------------------------------------
+  const especificacion = construirEspecificacion();
+
+  app.get(
+    '/api/v1/openapi.json',
+    env.esProduccion ? { preHandler: requiereRol('ADMIN') } : {},
+    async () => especificacion,
+  );
+
+  if (!env.esProduccion) {
+    await app.register(swagger, {
+      mode: 'static',
+      specification: { document: especificacion as never },
+    });
+    await app.register(swaggerUi, { routePrefix: '/api/v1/docs' });
+  }
+
   await app.register(rutasAuth, { prefix: '/api/v1/auth' });
   await app.register(rutasUsuarios, { prefix: '/api/v1/usuarios' });
   await app.register(rutasEscolar, { prefix: '/api/v1' });
@@ -100,6 +140,7 @@ export async function construirApp(): Promise<FastifyInstance> {
   await app.register(rutasBolsas, { prefix: '/api/v1/bolsas' });
   await app.register(rutasVentas, { prefix: '/api/v1/ventas' });
   await app.register(rutasInventario, { prefix: '/api/v1/inventario' });
+  await app.register(rutasReportes, { prefix: '/api/v1/reportes' });
   await app.register(rutasAdmin, { prefix: '/api/v1/admin' });
 
   return app;

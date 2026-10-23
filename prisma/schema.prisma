@@ -34,8 +34,8 @@ model InventoryItem {
   stockActual    Int      @default(0) // CACHE del ledger: solo lo escribe registrarMovimiento()
   stockMinimo    Int      @default(0) // umbral de alerta de reposicion
   activo         Boolean  @default(true) // baja logica: nunca se borra lo que tiene historia
-  creadoEn       DateTime @default(now())
-  actualizadoEn  DateTime @updatedAt
+  creadoEn       DateTime @default(now()) @db.Timestamptz(3)
+  actualizadoEn  DateTime @updatedAt @db.Timestamptz(3)
 
   variante         UniformeVariante?
   bolsa            BolsaUtiles?
@@ -188,7 +188,7 @@ model MovimientoStock {
   refId        String? // id de la venta/conteo que lo origino
   saldoDespues Int // snapshot para el kardex
   usuarioId    String
-  creadoEn     DateTime       @default(now())
+  creadoEn     DateTime       @default(now()) @db.Timestamptz(3)
 
   item    InventoryItem @relation(fields: [itemId], references: [id])
   usuario Usuario       @relation(fields: [usuarioId], references: [id])
@@ -226,8 +226,8 @@ model Venta {
   totalCentavos     Int
   idempotencyKey    String?     @unique // el doble clic en "Cobrar" no cobra dos veces
   usuarioId         String // quien vendio. No editable nunca.
-  creadoEn          DateTime    @default(now())
-  anuladaEn         DateTime?
+  creadoEn          DateTime    @default(now()) @db.Timestamptz(3)
+  anuladaEn         DateTime? @db.Timestamptz(3)
   anuladaPorId      String?
   motivoAnulacion   String?
 
@@ -273,7 +273,7 @@ model Usuario {
   passwordHash String
   rol          Rol
   activo       Boolean  @default(true)
-  creadoEn     DateTime @default(now())
+  creadoEn     DateTime @default(now()) @db.Timestamptz(3)
 
   movimientos    MovimientoStock[]
   ventas         Venta[]           @relation("VentasRealizadas")
@@ -288,8 +288,8 @@ model Usuario {
 model Sesion {
   id          String   @id @default(cuid()) // valor de la cookie: opaco y aleatorio
   usuarioId   String
-  expiraEn    DateTime
-  ultimoUsoEn DateTime @default(now())
+  expiraEn    DateTime @db.Timestamptz(3)
+  ultimoUsoEn DateTime @default(now()) @db.Timestamptz(3)
   ip          String?
   userAgent   String?
 
@@ -349,7 +349,7 @@ model HistorialPrecio {
   precioAnterior Int
   precioNuevo    Int
   usuarioId      String
-  creadoEn       DateTime @default(now())
+  creadoEn       DateTime @default(now()) @db.Timestamptz(3)
 
   item    InventoryItem @relation(fields: [itemId], references: [id])
   usuario Usuario       @relation(fields: [usuarioId], references: [id])
@@ -364,7 +364,7 @@ model AuditLog {
   entidad   String
   entidadId String
   datos     Json? // antes / despues
-  creadoEn  DateTime @default(now())
+  creadoEn  DateTime @default(now()) @db.Timestamptz(3)
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 

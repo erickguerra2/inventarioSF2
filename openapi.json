@@ -1,0 +1,3894 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Inventario CCSF2",
+    "version": "0.1.0",
+    "description": "Backend del inventario de uniformes y bolsas de utiles.\n\n- **El dinero va en centavos enteros.** Q125.50 se envia y se recibe como 12550.\n- **Se vende con `itemId`**, que sirve igual para una talla de uniforme que para una bolsa.\n- **La sesion va en una cookie httpOnly.** Basta `credentials: \"include\"` en cada peticion; no hay token que guardar.\n- Todas las respuestas correctas son `{ data }`, y `{ data, meta }` cuando paginan.\n- Los errores siempre traen `{ error: { code, message, details? } }`. Reaccione por `code`, no por el mensaje."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "El mismo dominio que sirve el frontend"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "cookieSesion": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sid"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDACION",
+                  "NO_ENCONTRADO",
+                  "NO_AUTENTICADO",
+                  "SIN_PERMISO",
+                  "RECURSO_DUPLICADO",
+                  "SKU_DUPLICADO",
+                  "ITEM_INACTIVO",
+                  "STOCK_INSUFICIENTE",
+                  "MOVIMIENTO_INVALIDO",
+                  "CICLO_CERRADO",
+                  "CICLO_SIN_ACTIVAR",
+                  "VENTA_YA_ANULADA",
+                  "DEMASIADOS_INTENTOS",
+                  "RESTRICCION_BD",
+                  "ERROR_INTERNO"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Error. El cuerpo siempre tiene la misma forma.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Salud"
+    },
+    {
+      "name": "Sesion"
+    },
+    {
+      "name": "Usuarios"
+    },
+    {
+      "name": "Escolar"
+    },
+    {
+      "name": "Uniformes"
+    },
+    {
+      "name": "Bolsas de utiles"
+    },
+    {
+      "name": "Ventas"
+    },
+    {
+      "name": "Inventario"
+    },
+    {
+      "name": "Reportes"
+    },
+    {
+      "name": "Documentacion"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Salud"
+        ],
+        "summary": "El servicio esta vivo",
+        "description": "Publico.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/health/db": {
+      "get": {
+        "tags": [
+          "Salud"
+        ],
+        "summary": "La base de datos responde",
+        "description": "Publico.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Sesion"
+        ],
+        "summary": "Iniciar sesion",
+        "description": "Publico. Responde con Set-Cookie (sid, httpOnly). Se bloquea tras 5 intentos fallidos por IP + usuario.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "usuario": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "usuario",
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Sesion"
+        ],
+        "summary": "Cerrar sesion",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Sesion"
+        ],
+        "summary": "Quien soy",
+        "description": "Requiere sesion. El frontend lo llama al cargar: 200 hay sesion, 401 mostrar login.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/usuarios": {
+      "get": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Listar usuarios",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "incluirInactivos",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false",
+                    "1",
+                    "0"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Crear una maestra o administradora",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "usuario": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 50,
+                    "pattern": "^[a-z0-9._-]+$"
+                  },
+                  "nombre": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "rol": {
+                    "type": "string",
+                    "enum": [
+                      "ADMIN",
+                      "VENDEDOR"
+                    ]
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "usuario",
+                  "nombre",
+                  "rol",
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/usuarios/{id}": {
+      "get": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Ver un usuario",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Editar o desactivar un usuario",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "nullable": true
+                  },
+                  "rol": {
+                    "type": "string",
+                    "enum": [
+                      "ADMIN",
+                      "VENDEDOR"
+                    ]
+                  },
+                  "activo": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/usuarios/{id}/password": {
+      "post": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Resetear la contrasena",
+        "description": "Solo ADMIN. Cierra todas las sesiones de ese usuario.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/niveles": {
+      "get": {
+        "tags": [
+          "Escolar"
+        ],
+        "summary": "Listar niveles con sus grados",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Escolar"
+        ],
+        "summary": "Crear un nivel",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "orden": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "nombre",
+                  "orden"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/grados": {
+      "get": {
+        "tags": [
+          "Escolar"
+        ],
+        "summary": "Listar grados",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "nivelId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Escolar"
+        ],
+        "summary": "Crear un grado",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nivelId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "nombre": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "orden": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "nivelId",
+                  "nombre",
+                  "orden"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ciclos": {
+      "get": {
+        "tags": [
+          "Escolar"
+        ],
+        "summary": "Listar ciclos escolares",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Escolar"
+        ],
+        "summary": "Crear un ciclo escolar",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "anio": {
+                    "type": "integer",
+                    "minimum": 2000,
+                    "maximum": 2100
+                  },
+                  "activo": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "anio"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ciclos/{id}/activar": {
+      "post": {
+        "tags": [
+          "Escolar"
+        ],
+        "summary": "Activar un ciclo (desactiva el anterior)",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/uniformes/categorias": {
+      "get": {
+        "tags": [
+          "Uniformes"
+        ],
+        "summary": "Categorias de uniforme",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/uniformes/prendas": {
+      "get": {
+        "tags": [
+          "Uniformes"
+        ],
+        "summary": "Listar prendas con sus tallas",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "categoria",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "incluirInactivas",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false",
+                    "1",
+                    "0"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Uniformes"
+        ],
+        "summary": "Crear una prenda (opcionalmente con sus tallas)",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "categoriaId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "nombre": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "descripcion": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "tipoTalla": {
+                    "type": "string",
+                    "enum": [
+                      "LETRA",
+                      "NUMERO"
+                    ]
+                  },
+                  "variantes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "talla": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 10
+                        },
+                        "precioCentavos": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        },
+                        "costoCentavos": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        },
+                        "stockMinimo": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "talla",
+                        "precioCentavos"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "categoriaId",
+                  "nombre",
+                  "tipoTalla"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/uniformes/prendas/{id}": {
+      "get": {
+        "tags": [
+          "Uniformes"
+        ],
+        "summary": "Ver una prenda",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Uniformes"
+        ],
+        "summary": "Editar una prenda",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "descripcion": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  },
+                  "activo": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Uniformes"
+        ],
+        "summary": "Desactivar una prenda y sus tallas",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/uniformes/prendas/{id}/variantes": {
+      "post": {
+        "tags": [
+          "Uniformes"
+        ],
+        "summary": "Agregar una talla",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "talla": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10
+                  },
+                  "precioCentavos": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "costoCentavos": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "stockMinimo": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "talla",
+                  "precioCentavos"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/uniformes/variantes/{id}": {
+      "patch": {
+        "tags": [
+          "Uniformes"
+        ],
+        "summary": "Editar precio, costo o minimo de una talla",
+        "description": "Solo ADMIN. No acepta stockActual: las existencias solo se mueven con un movimiento de inventario.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "precioCentavos": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "costoCentavos": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "nullable": true
+                  },
+                  "stockMinimo": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "activo": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Uniformes"
+        ],
+        "summary": "Borrar una talla sin historia",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/bolsas": {
+      "get": {
+        "tags": [
+          "Bolsas de utiles"
+        ],
+        "summary": "Listar bolsas por ciclo y grado",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "ciclo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 2000,
+              "maximum": 2100
+            }
+          },
+          {
+            "name": "cicloId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "gradoId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "nivelId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "incluirInactivas",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false",
+                    "1",
+                    "0"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Bolsas de utiles"
+        ],
+        "summary": "Crear la bolsa de un grado y ciclo",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "gradoId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cicloId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "precioCentavos": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "costoCentavos": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "stockMinimo": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "nombre": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "notas": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "contenido": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "descripcion": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "cantidad": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "unidad": {
+                          "type": "string",
+                          "maxLength": 30
+                        }
+                      },
+                      "required": [
+                        "descripcion",
+                        "cantidad"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 200
+                  }
+                },
+                "required": [
+                  "gradoId",
+                  "cicloId",
+                  "precioCentavos"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/bolsas/{id}": {
+      "get": {
+        "tags": [
+          "Bolsas de utiles"
+        ],
+        "summary": "Ver una bolsa y su contenido",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Bolsas de utiles"
+        ],
+        "summary": "Editar nombre, precio o minimo",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "notas": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  },
+                  "precioCentavos": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "costoCentavos": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "nullable": true
+                  },
+                  "stockMinimo": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "activo": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Bolsas de utiles"
+        ],
+        "summary": "Desactivar una bolsa",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/bolsas/{id}/lista": {
+      "get": {
+        "tags": [
+          "Bolsas de utiles"
+        ],
+        "summary": "Lista de utiles para imprimir",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/bolsas/{id}/contenido": {
+      "put": {
+        "tags": [
+          "Bolsas de utiles"
+        ],
+        "summary": "Reemplazar la lista de utiles completa",
+        "description": "Solo ADMIN. El contenido es informativo: no cambia existencias ni precio, y puede quedar vacio.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "contenido": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "descripcion": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "cantidad": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "unidad": {
+                          "type": "string",
+                          "maxLength": 30
+                        }
+                      },
+                      "required": [
+                        "descripcion",
+                        "cantidad"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 200
+                  }
+                },
+                "required": [
+                  "contenido"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/bolsas/{id}/duplicar": {
+      "post": {
+        "tags": [
+          "Bolsas de utiles"
+        ],
+        "summary": "Clonar la bolsa a otro ciclo, con stock 0",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cicloId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "cicloId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ventas": {
+      "post": {
+        "tags": [
+          "Ventas"
+        ],
+        "summary": "Registrar una venta",
+        "description": "Requiere sesion. Exige la cabecera Idempotency-Key. Si la clave ya se uso responde 200 con la venta original, sin descontar de nuevo.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "UUID por intento de venta. El mismo valor en los reintentos.",
+            "schema": {
+              "type": "string",
+              "minLength": 8
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lineas": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "itemId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "cantidad": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000
+                        }
+                      },
+                      "required": [
+                        "itemId",
+                        "cantidad"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1
+                  },
+                  "metodoPago": {
+                    "type": "string",
+                    "enum": [
+                      "EFECTIVO",
+                      "TRANSFERENCIA",
+                      "DEPOSITO",
+                      "TARJETA"
+                    ]
+                  },
+                  "alumnoId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "compradorNombre": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "referenciaPago": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "descuentoCentavos": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  }
+                },
+                "required": [
+                  "lineas",
+                  "metodoPago"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Ventas"
+        ],
+        "summary": "Listar ventas",
+        "description": "Requiere sesion. Una maestra solo recibe las suyas, se ignora el usuarioId del query.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PAGADA",
+                "ANULADA"
+              ]
+            }
+          },
+          {
+            "name": "usuarioId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "alumnoId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "soloConDescuento",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false",
+                    "1",
+                    "0"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "perPage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ventas/{id}": {
+      "get": {
+        "tags": [
+          "Ventas"
+        ],
+        "summary": "Ver una venta",
+        "description": "Requiere sesion. Una venta ajena responde 404, no 403.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ventas/{id}/recibo": {
+      "get": {
+        "tags": [
+          "Ventas"
+        ],
+        "summary": "Datos del recibo",
+        "description": "Requiere sesion.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ventas/{id}/anular": {
+      "post": {
+        "tags": [
+          "Ventas"
+        ],
+        "summary": "Anular una venta y devolver el stock",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "motivo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "motivo"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inventario": {
+      "get": {
+        "tags": [
+          "Inventario"
+        ],
+        "summary": "Existencias de uniformes y bolsas juntas",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "tipo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "UNIFORME_TALLA",
+                "BOLSA_UTILES"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "bajoStock",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false",
+                    "1",
+                    "0"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "incluirInactivos",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false",
+                    "1",
+                    "0"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "perPage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inventario/alertas": {
+      "get": {
+        "tags": [
+          "Inventario"
+        ],
+        "summary": "Que hay que reponer",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inventario/{itemId}": {
+      "get": {
+        "tags": [
+          "Inventario"
+        ],
+        "summary": "Ver un item",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inventario/entradas": {
+      "post": {
+        "tags": [
+          "Inventario"
+        ],
+        "summary": "Ingresar existencias en lote",
+        "description": "Solo ADMIN. Una transaccion. Con tipo APERTURA es la carga inicial del inventario.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "motivo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "tipo": {
+                    "type": "string",
+                    "enum": [
+                      "ENTRADA",
+                      "APERTURA"
+                    ],
+                    "default": "ENTRADA"
+                  },
+                  "lineas": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "itemId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "cantidad": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100000
+                        }
+                      },
+                      "required": [
+                        "itemId",
+                        "cantidad"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "motivo",
+                  "lineas"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inventario/conteos": {
+      "post": {
+        "tags": [
+          "Inventario"
+        ],
+        "summary": "Registrar un conteo fisico",
+        "description": "Solo ADMIN. La diferencia se registra como ajuste con motivo; no se corrige el stock en silencio.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "motivo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "lineas": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "itemId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "contado": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000
+                        }
+                      },
+                      "required": [
+                        "itemId",
+                        "contado"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "lineas"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inventario/{itemId}/movimientos": {
+      "post": {
+        "tags": [
+          "Inventario"
+        ],
+        "summary": "Entrada, ajuste, merma o devolucion",
+        "description": "Solo ADMIN. La cantidad va SIEMPRE positiva: el tipo define si entra o sale. VENTA no se acepta aqui.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cantidad": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000
+                  },
+                  "tipo": {
+                    "type": "string",
+                    "enum": [
+                      "ENTRADA",
+                      "APERTURA",
+                      "DEVOLUCION",
+                      "AJUSTE_POS",
+                      "AJUSTE_NEG",
+                      "MERMA"
+                    ]
+                  },
+                  "motivo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "cantidad",
+                  "tipo"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inventario/{itemId}/kardex": {
+      "get": {
+        "tags": [
+          "Inventario"
+        ],
+        "summary": "Historial de un item con saldos",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "perPage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/verificar-integridad": {
+      "get": {
+        "tags": [
+          "Inventario"
+        ],
+        "summary": "stockActual == SUM(movimientos) en todos los items",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reportes/corte-caja": {
+      "get": {
+        "tags": [
+          "Reportes"
+        ],
+        "summary": "Corte de caja del dia, por maestra y metodo de pago",
+        "description": "Requiere sesion. El unico reporte que ve una maestra, y solo el suyo. Con formato=csv devuelve un CSV.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "fecha",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "usuarioId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "formato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reportes/ventas": {
+      "get": {
+        "tags": [
+          "Reportes"
+        ],
+        "summary": "Ventas agrupadas por dia, maestra, tipo o grado",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agrupar",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "dia",
+                "usuario",
+                "tipo",
+                "grado"
+              ],
+              "default": "dia"
+            }
+          },
+          {
+            "name": "formato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reportes/tallas-mas-vendidas": {
+      "get": {
+        "tags": [
+          "Reportes"
+        ],
+        "summary": "Que tallas pedir",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "desde",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hasta",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "formato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reportes/existencias-valorizadas": {
+      "get": {
+        "tags": [
+          "Reportes"
+        ],
+        "summary": "Cuanto vale el inventario al costo",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "formato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reportes/bolsas-por-grado": {
+      "get": {
+        "tags": [
+          "Reportes"
+        ],
+        "summary": "Bolsas vendidas y en existencia por grado",
+        "description": "Solo ADMIN.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cicloId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "ciclo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 2000,
+              "maximum": 2100
+            }
+          },
+          {
+            "name": "formato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieSesion": []
+          }
+        ]
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "tags": [
+          "Documentacion"
+        ],
+        "summary": "Esta especificacion",
+        "description": "Publico.",
+        "responses": {
+          "200": {
+            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  }
+}

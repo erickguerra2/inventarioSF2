@@ -44,6 +44,13 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npm run typecheck
+
+      # El openapi.json versionado es lo que consume el frontend: si alguien
+      # cambia un esquema y no lo regenera, aqui se ve.
+      - run: npm run openapi
+      - name: openapi.json esta al dia
+        run: git diff --exit-code openapi.json
+
       - run: npx prisma migrate deploy
       - run: npm run seed
       - run: npm test

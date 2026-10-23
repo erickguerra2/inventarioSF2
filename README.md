@@ -56,6 +56,7 @@ curl http://127.0.0.1:3000/health/db
 | `npm run migrate:deploy` | Aplica migraciones pendientes (es lo que corre en el servidor) |
 | `npm run seed` | Datos iniciales. Es idempotente: se puede repetir |
 | `npm run sesiones:limpiar` | Borra sesiones vencidas (para una tarea diaria) |
+| `npm run openapi` | Regenera `openapi.json` (sin levantar el servidor) |
 | `npm run studio` | Prisma Studio, para ver la base a mano |
 | `npm run db:up` / `npm run db:down` | Postgres en Docker |
 | `npm run db:reset` | Borra y reconstruye la base. **Destructivo** |
@@ -115,7 +116,19 @@ POST   /inventario/conteos             # conteo físico -> genera los ajustes
 POST   /inventario/:itemId/movimientos # entrada, ajuste, merma o devolución
 GET    /inventario/:itemId/kardex?desde=&hasta=&page=&perPage=
 GET    /admin/verificar-integridad     # stockActual == SUM(movimientos) en todos los items
+
+GET    /reportes/corte-caja?fecha=&usuarioId=&formato=csv   # maestra: solo el suyo
+GET    /reportes/ventas?desde=&hasta=&agrupar=dia|usuario|tipo|grado&formato=csv
+GET    /reportes/tallas-mas-vendidas?desde=&hasta=&limite=&formato=csv
+GET    /reportes/existencias-valorizadas?formato=csv
+GET    /reportes/bolsas-por-grado?ciclo=2026&formato=csv
+
+GET    /api/v1/openapi.json            # el contrato (público en desarrollo)
+GET    /api/v1/docs                    # Swagger UI (solo en desarrollo)
 ```
+
+Cualquier reporte acepta `formato=csv` y devuelve un archivo listo para Excel (con BOM y
+separado por `;`, que es lo que Excel espera en configuración regional de Guatemala).
 
 ### Cómo se registra una venta
 
@@ -196,6 +209,39 @@ Nota para el frontend: **se vende con `itemId`**, no con el id de la variante ni
 bolsa. El `itemId` es la unidad de inventario, y es lo que recibirá `POST /ventas` en la
 Fase 4.
 
+### El contrato para el frontend
+
+```bash
+npm run openapi      # regenera openapi.json
+```
+
+`openapi.json` está versionado en el repositorio y es el contrato: rutas, parámetros,
+cuerpos de petición, permisos y el catálogo cerrado de códigos de error. **Los esquemas no
+están escritos a mano**: se generan de los mismos objetos Zod que validan las peticiones, así
+que no pueden mentir sobre lo que la API acepta.
+
+Para tener los tipos en React:
+
+```bash
+npx openapi-typescript openapi.json -o src/tipos-api.ts
+```
+
+En desarrollo también hay Swagger UI para probar endpoints a mano, en
+`http://127.0.0.1:3000/api/v1/docs`. En producción no se publica.
+
+Dos cosas que conviene saber de este contrato:
+
+- La tabla de rutas (método, ruta, resumen, permiso) **sí** está escrita a mano, en
+  `src/docs/openapi.ts`. Lo que impide que se desincronice es
+  [tests/integration/openapi.test.ts](tests/integration/openapi.test.ts), que la compara en
+  las dos direcciones contra las rutas que Fastify registró de verdad: si alguien agrega un
+  endpoint y no lo documenta, el test falla. El CI además verifica que `openapi.json` esté
+  regenerado.
+- Las **respuestas** están documentadas como el sobre (`{ data }` / `{ data, meta }`), no
+  campo por campo. Describirlas en el spec significaría mantener a mano una copia de cada
+  presentador, que es justo lo que se desincroniza. Si hacen falta los tipos exactos de
+  respuesta, el camino es generarlos del TypeScript del backend, que ya los tiene.
+
 ### Sesión y permisos
 
 La sesión va en una **cookie `httpOnly` firmada**, no en un token que el JavaScript pueda
@@ -267,7 +313,8 @@ accede a datos.
 | 2 — Inventario: entradas, ajustes, conteo, kardex, alertas | **Listo** |
 | 3 — Auth, usuarios y permisos | **Listo** |
 | 4 — Ventas | **Listo** |
-| 5 — Reportes, corte de caja y despliegue | Pendiente |
+| 5 — Reportes, corte de caja, CSV y OpenAPI | **Listo** |
+| 5b — Despliegue en el servidor (§13 del plan) | Pendiente: falta saber qué permite el hosting |
 
 Dos cosas que conviene saber mientras tanto:
 
