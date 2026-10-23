@@ -1,0 +1,199 @@
+/**
+ * Pruebas contra un Postgres real (el de docker-compose) con el seed aplicado.
+ * No se usa SQLite ni mocks a proposito: lo que se esta probando son el FOR UPDATE,
+ * los CHECK y el comportamiento real de las transacciones.
+ *
+ *   npm run db:up && npm run migrate:deploy && npm run seed && npm test
+ */
+import type { FastifyInstance } from 'fastify';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { construirApp } from '../../src/app.js';
+import {
+  itemsConStockInconsistente,
+  registrarMovimiento,
+} from '../../src/modules/inventario/inventario.service.js';
+import { prisma } from '../../src/shared/prisma.js';
+
+let app: FastifyInstance;
+
+beforeAll(async () => {
+  app = await construirApp();
+  await app.ready();
+});
+
+afterAll(async () => {
+  await app.close();
+  await prisma.$disconnect();
+});
+
+describe('salud y errores', () => {
+  it('responde /health sin tocar la base', async () => {
+    const respuesta = await app.inject({ method: 'GET', url: '/health' });
+    expect(respuesta.statusCode).toBe(200);
+    expect(respuesta.json().ok).toBe(true);
+  });
+
+  it('una ruta que no existe devuelve el sobre de error estandar', async () => {
+    const respuesta = await app.inject({ method: 'GET', url: '/api/v1/no-existe' });
+    expect(respuesta.statusCode).toBe(404);
+    expect(respuesta.json().error.code).toBe('NO_ENCONTRADO');
+  });
+
+  it('un body invalido devuelve 400 con el detalle de los campos', async () => {
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/api/v1/bolsas',
+      payload: { gradoId: '', cicloId: '', precioCentavos: 12.5 },
+    });
+    expect(respuesta.statusCode).toBe(400);
+    const cuerpo = respuesta.json();
+    expect(cuerpo.error.code).toBe('VALIDACION');
+    expect(cuerpo.error.details.campos.length).toBeGreaterThan(0);
+  });
+});
+
+describe('catalogo de uniformes', () => {
+  it('devuelve las dos categorias', async () => {
+    const respuesta = await app.inject({ method: 'GET', url: '/api/v1/uniformes/categorias' });
+    const codigos = respuesta.json().data.map((c: { codigo: string }) => c.codigo);
+    expect(codigos).toEqual(['DIARIO', 'FISICA']);
+  });
+
+  it('devuelve 3 prendas por categoria con sus tallas ordenadas', async () => {
+    const respuesta = await app.inject({
+      method: 'GET',
+      url: '/api/v1/uniformes/prendas?categoria=DIARIO',
+    });
+    expect(respuesta.statusCode).toBe(200);
+
+    const prendas = respuesta.json().data;
+    expect(prendas).toHaveLength(3);
+
+    const polo = prendas.find((p: { nombre: string }) => p.nombre === 'Polo institucional');
+    expect(polo.variantes.map((v: { talla: string }) => v.talla)).toEqual([
+      'XS',
+      'S',
+      'M',
+      'L',
+      'XL',
+    ]);
+
+    const pantalon = prendas.find((p: { nombre: string }) => p.nombre.startsWith('Pantalón'));
+    expect(pantalon.variantes.map((v: { talla: string }) => v.talla)).toEqual([
+      '28',
+      '30',
+      '32',
+      '34',
+      '36',
+      '38',
+    ]);
+  });
+
+  it('una talla agotada se muestra pero marcada como no disponible', async () => {
+    const respuesta = await app.inject({
+      method: 'GET',
+      url: '/api/v1/uniformes/prendas?categoria=DIARIO',
+    });
+    const prendas = respuesta.json().data;
+    const pantalon = prendas.find((p: { nombre: string }) => p.nombre.startsWith('Pantalón'));
+    const talla38 = pantalon.variantes.find((v: { talla: string }) => v.talla === '38');
+
+    expect(talla38.stockActual).toBe(0);
+    expect(talla38.disponible).toBe(false);
+  });
+
+  it('arma la URL absoluta de las fotos', async () => {
+    const respuesta = await app.inject({ method: 'GET', url: '/api/v1/uniformes/prendas' });
+    const prenda = respuesta.json().data[0];
+    expect(prenda.fotos[0].url).toMatch(/^https?:\/\/.+\/foto\./);
+  });
+});
+
+describe('bolsas de utiles', () => {
+  it('lista las bolsas del ciclo con su stock en bolsas enteras', async () => {
+    const respuesta = await app.inject({ method: 'GET', url: '/api/v1/bolsas?ciclo=2026' });
+    expect(respuesta.statusCode).toBe(200);
+
+    const bolsas = respuesta.json().data;
+    expect(bolsas.length).toBeGreaterThanOrEqual(6);
+
+    const cuarto = bolsas.find((b: { grado: { nombre: string } }) =>
+      b.grado.nombre.startsWith('4to Primaria'),
+    );
+    expect(cuarto.stockActual).toBe(25);
+    expect(cuarto.sku).toBe('BOL-4TO-PRIMARIA-2026');
+  });
+
+  it('el contenido es opcional: una bolsa sin lista funciona igual', async () => {
+    const respuesta = await app.inject({ method: 'GET', url: '/api/v1/bolsas?ciclo=2026' });
+    const bolsas = respuesta.json().data;
+
+    const conLista = bolsas.filter((b: { totalLineasContenido: number }) => b.totalLineasContenido > 0);
+    const sinLista = bolsas.filter((b: { totalLineasContenido: number }) => b.totalLineasContenido === 0);
+
+    expect(conLista.length).toBeGreaterThan(0);
+    expect(sinLista.length).toBeGreaterThan(0);
+    // Las que no tienen lista igual tienen precio y existencias.
+    expect(sinLista[0].precioCentavos).toBeGreaterThan(0);
+  });
+
+  it('entrega la lista para imprimir', async () => {
+    const lista = await app.inject({ method: 'GET', url: '/api/v1/bolsas?ciclo=2026' });
+    const conLista = lista
+      .json()
+      .data.find((b: { totalLineasContenido: number }) => b.totalLineasContenido > 0);
+
+    const respuesta = await app.inject({
+      method: 'GET',
+      url: `/api/v1/bolsas/${conLista.id}/lista`,
+    });
+    expect(respuesta.statusCode).toBe(200);
+    expect(respuesta.json().data.items.length).toBeGreaterThan(0);
+  });
+});
+
+describe('la regla que sostiene el inventario', () => {
+  it('no deja sacar mas de lo que hay, y no cambia el stock al fallar', async () => {
+    const item = await prisma.inventoryItem.findFirstOrThrow({
+      where: { sku: 'BOL-4TO-PRIMARIA-2026' },
+    });
+    const admin = await prisma.usuario.findFirstOrThrow({ where: { rol: 'ADMIN' } });
+
+    await expect(
+      prisma.$transaction((tx) =>
+        registrarMovimiento(tx, {
+          itemId: item.id,
+          cantidad: -(item.stockActual + 1),
+          tipo: 'VENTA',
+          usuarioId: admin.id,
+        }),
+      ),
+    ).rejects.toThrowError(/insuficientes/i);
+
+    const despues = await prisma.inventoryItem.findUniqueOrThrow({ where: { id: item.id } });
+    expect(despues.stockActual).toBe(item.stockActual);
+  });
+
+  it('el stock de cada item coincide con la suma de sus movimientos', async () => {
+    const inconsistentes = await itemsConStockInconsistente();
+    expect(inconsistentes).toEqual([]);
+  });
+
+  it('las existencias no se pueden editar por el endpoint de la talla', async () => {
+    const variante = await prisma.uniformeVariante.findFirstOrThrow({ include: { item: true } });
+
+    const respuesta = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/uniformes/variantes/${variante.id}`,
+      payload: { stockActual: 999 },
+    });
+
+    // El campo no existe en el schema de entrada: la peticion no tiene nada valido.
+    expect(respuesta.statusCode).toBe(400);
+
+    const despues = await prisma.inventoryItem.findUniqueOrThrow({
+      where: { id: variante.itemId },
+    });
+    expect(despues.stockActual).toBe(variante.item.stockActual);
+  });
+});

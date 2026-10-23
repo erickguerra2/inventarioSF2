@@ -1,0 +1,373 @@
+// Inventario CCSF2 — uniformes y bolsas de utiles.
+// El diseno y el por que de cada decision estan en docs/plan-backend.md.
+//
+// Regla que ordena todo el archivo: existe UNA sola tabla de "cosa vendible con
+// existencias" (InventoryItem). Una talla de uniforme apunta a una. Una bolsa de
+// utiles apunta a una. Asi hay un solo ledger, una sola logica de stock y un solo
+// reporte de existencias.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================================================
+// Nucleo: lo que se vende y tiene existencias
+// ===========================================================================
+
+enum TipoItem {
+  UNIFORME_TALLA
+  BOLSA_UTILES
+}
+
+model InventoryItem {
+  id             String   @id @default(cuid())
+  tipo           TipoItem
+  sku            String   @unique // UNI-DIARIO-POLO-INSTITUCIONAL-M, BOL-4TO-PRIMARIA-2026
+  nombre         String // "Polo institucional - M". Denormalizado para reportes.
+  precioCentavos Int // SIEMPRE centavos de quetzal. Nunca decimales.
+  costoCentavos  Int? // costo de adquisicion, para valorizar el inventario
+  stockActual    Int      @default(0) // CACHE del ledger: solo lo escribe registrarMovimiento()
+  stockMinimo    Int      @default(0) // umbral de alerta de reposicion
+  activo         Boolean  @default(true) // baja logica: nunca se borra lo que tiene historia
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
+
+  variante         UniformeVariante?
+  bolsa            BolsaUtiles?
+  movimientos      MovimientoStock[]
+  lineasVenta      VentaLinea[]
+  historialPrecios HistorialPrecio[]
+
+  @@index([tipo, activo])
+}
+
+// ===========================================================================
+// Uniformes: la TALLA es la unidad de inventario
+// ===========================================================================
+
+enum TipoTalla {
+  LETRA // XS, S, M, L, XL
+  NUMERO // 28, 30, 32, 34, 36, 38
+}
+
+model CategoriaUniforme {
+  id      String   @id @default(cuid())
+  codigo  String   @unique // DIARIO | FISICA
+  nombre  String
+  orden   Int
+  prendas Prenda[]
+}
+
+model Prenda {
+  id          String    @id @default(cuid())
+  categoriaId String
+  nombre      String // "Polo institucional"
+  descripcion String?
+  tipoTalla   TipoTalla
+  activo      Boolean   @default(true)
+
+  categoria CategoriaUniforme  @relation(fields: [categoriaId], references: [id])
+  variantes UniformeVariante[]
+  fotos     Media[]
+
+  @@unique([categoriaId, nombre])
+}
+
+model UniformeVariante {
+  id         String @id @default(cuid())
+  prendaId   String
+  talla      String // "M", "32"
+  ordenTalla Int // XS=1 S=2 M=3 L=4 XL=5 / 28=28 30=30... Ordenar alfabeticamente da L,M,S,XL,XS.
+  itemId     String @unique
+
+  prenda Prenda        @relation(fields: [prendaId], references: [id])
+  item   InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@unique([prendaId, talla]) // no puede haber dos "talla M" del mismo polo
+}
+
+// ===========================================================================
+// Estructura escolar
+// ===========================================================================
+
+model Nivel {
+  id     String  @id @default(cuid())
+  nombre String  @unique // Preprimaria, Primaria, Basicos, Diversificado
+  orden  Int
+  grados Grado[]
+}
+
+model Grado {
+  id      String @id @default(cuid())
+  nivelId String
+  nombre  String // "4to Primaria"
+  orden   Int
+
+  nivel   Nivel         @relation(fields: [nivelId], references: [id])
+  bolsas  BolsaUtiles[]
+  alumnos Alumno[]
+
+  @@unique([nivelId, nombre])
+}
+
+model CicloEscolar {
+  id     String  @id @default(cuid())
+  anio   Int     @unique // 2026
+  activo Boolean @default(false) // solo uno true a la vez (lo garantiza el servicio)
+
+  bolsas  BolsaUtiles[]
+  alumnos Alumno[]
+}
+
+// ===========================================================================
+// Bolsas de utiles: la BOLSA COMPLETA es la unidad de inventario.
+// Lo que se ingresa es "tengo 25 bolsas de 4to primaria", nunca "tantos lapices".
+// ===========================================================================
+
+model BolsaUtiles {
+  id      String  @id @default(cuid())
+  gradoId String
+  cicloId String
+  version Int     @default(1) // si la lista cambia a medio ciclo
+  nombre  String // "Bolsa de utiles - 4to Primaria - 2026"
+  notas   String?
+  itemId  String  @unique
+
+  grado     Grado         @relation(fields: [gradoId], references: [id])
+  ciclo     CicloEscolar  @relation(fields: [cicloId], references: [id])
+  item      InventoryItem @relation(fields: [itemId], references: [id])
+  contenido BolsaItem[]
+  fotos     Media[]
+
+  @@unique([gradoId, cicloId, version])
+}
+
+// OPCIONAL y puramente informativo: es la lista que se imprime y se entrega.
+// No tiene existencias ni precio. Una BolsaUtiles sin ningun BolsaItem es valida
+// y se vende igual. Vender una bolsa descuenta 1 bolsa, jamas 40 cuadernos.
+model BolsaItem {
+  id          String  @id @default(cuid())
+  bolsaId     String
+  descripcion String // "Cuaderno doble linea 80 hojas"
+  cantidad    Int
+  unidad      String? // unidad, resma, caja, docena
+  orden       Int
+
+  bolsa BolsaUtiles @relation(fields: [bolsaId], references: [id], onDelete: Cascade)
+
+  @@index([bolsaId, orden])
+}
+
+// ===========================================================================
+// Ledger de inventario. stockActual == SUM(cantidad) para cada item, siempre.
+// ===========================================================================
+
+enum TipoMovimiento {
+  APERTURA // saldo inicial al montar el sistema
+  ENTRADA // compra, donacion, bolsas armadas
+  VENTA // -
+  DEVOLUCION // + el cliente devuelve
+  AJUSTE_POS // + por conteo fisico
+  AJUSTE_NEG // - por conteo fisico
+  MERMA // - dano, perdida, extravio
+  ANULACION_VENTA // + reversa de una venta anulada
+}
+
+model MovimientoStock {
+  id           String         @id @default(cuid())
+  itemId       String
+  cantidad     Int // FIRMADO: + entra, - sale. Nunca 0.
+  tipo         TipoMovimiento
+  motivo       String?
+  refTipo      String? // VENTA | CONTEO | COMPRA
+  refId        String? // id de la venta/conteo que lo origino
+  saldoDespues Int // snapshot para el kardex
+  usuarioId    String
+  creadoEn     DateTime       @default(now())
+
+  item    InventoryItem @relation(fields: [itemId], references: [id])
+  usuario Usuario       @relation(fields: [usuarioId], references: [id])
+
+  @@index([itemId, creadoEn])
+  @@index([refTipo, refId])
+}
+
+// ===========================================================================
+// Ventas. Los documentos historicos no se calculan: se congelan.
+// ===========================================================================
+
+enum EstadoVenta {
+  PAGADA
+  ANULADA
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  DEPOSITO
+  TARJETA
+}
+
+model Venta {
+  id                String      @id @default(cuid())
+  correlativo       Int         @unique // consecutivo visible, desde venta_correlativo_seq
+  alumnoId          String?
+  compradorNombre   String? // si el comprador no esta en el sistema
+  estado            EstadoVenta @default(PAGADA)
+  metodoPago        MetodoPago
+  referenciaPago    String? // no. de boleta / transferencia
+  subtotalCentavos  Int
+  descuentoCentavos Int         @default(0)
+  totalCentavos     Int
+  idempotencyKey    String?     @unique // el doble clic en "Cobrar" no cobra dos veces
+  usuarioId         String // quien vendio. No editable nunca.
+  creadoEn          DateTime    @default(now())
+  anuladaEn         DateTime?
+  anuladaPorId      String?
+  motivoAnulacion   String?
+
+  usuario    Usuario      @relation("VentasRealizadas", fields: [usuarioId], references: [id])
+  anuladaPor Usuario?     @relation("VentasAnuladas", fields: [anuladaPorId], references: [id])
+  alumno     Alumno?      @relation(fields: [alumnoId], references: [id])
+  lineas     VentaLinea[]
+
+  @@index([creadoEn])
+  @@index([alumnoId])
+  @@index([usuarioId, creadoEn]) // corte de caja: ventas de una maestra en un dia
+}
+
+model VentaLinea {
+  id                  String @id @default(cuid())
+  ventaId             String
+  itemId              String
+  descripcionSnapshot String // congelado: el recibo de enero no puede cambiar en marzo
+  precioUnitCentavos  Int // precio AL MOMENTO de la venta
+  cantidad            Int
+  totalCentavos       Int
+
+  venta Venta         @relation(fields: [ventaId], references: [id])
+  item  InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@index([ventaId])
+}
+
+// ===========================================================================
+// Usuarios y sesiones
+// ===========================================================================
+
+enum Rol {
+  ADMIN // la administradora: ingresa todo, anula, ve reportes
+  VENDEDOR // cada maestra: su unica escritura es POST /ventas
+}
+
+model Usuario {
+  id           String   @id @default(cuid())
+  usuario      String   @unique // login corto: "lucia.m". NO email: puede que no tengan.
+  nombre       String // "Lucia Mendez" — lo que sale en los reportes
+  email        String? // opcional, solo contacto
+  passwordHash String
+  rol          Rol
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+
+  movimientos    MovimientoStock[]
+  ventas         Venta[]           @relation("VentasRealizadas")
+  ventasAnuladas Venta[]           @relation("VentasAnuladas")
+  cambiosPrecio  HistorialPrecio[]
+  auditoria      AuditLog[]
+  sesiones       Sesion[]
+}
+
+// Sesion del lado del servidor: es lo que hace que el logout y la baja de una
+// maestra tengan efecto inmediato. El id viaja en una cookie httpOnly.
+model Sesion {
+  id          String   @id @default(cuid()) // valor de la cookie: opaco y aleatorio
+  usuarioId   String
+  expiraEn    DateTime
+  ultimoUsoEn DateTime @default(now())
+  ip          String?
+  userAgent   String?
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEn])
+}
+
+// ===========================================================================
+// Alumnos (Fase 6). Venta.alumnoId es nullable a proposito: hoy la venta guarda
+// solo compradorNombre y el sistema funciona completo sin un alumno cargado.
+// ===========================================================================
+
+model Alumno {
+  id        String  @id @default(cuid())
+  codigo    String? @unique // carne, si el colegio lo usa
+  nombres   String
+  apellidos String
+  gradoId   String
+  cicloId   String
+  activo    Boolean @default(true)
+
+  grado  Grado        @relation(fields: [gradoId], references: [id])
+  ciclo  CicloEscolar @relation(fields: [cicloId], references: [id])
+  ventas Venta[]
+
+  @@index([apellidos, nombres])
+}
+
+// ===========================================================================
+// Soporte: fotos, historial de precios, auditoria
+// ===========================================================================
+
+// path guarda SOLO la ruta relativa ("foto.1.jpg"). La URL absoluta se arma al
+// responder con MEDIA_BASE_URL, para que mover las fotos de servidor sea cambiar
+// una variable de entorno y no 300 filas.
+model Media {
+  id          String  @id @default(cuid())
+  prendaId    String?
+  bolsaId     String?
+  path        String
+  alt         String?
+  orden       Int     @default(0)
+  esPrincipal Boolean @default(false)
+
+  prenda Prenda?      @relation(fields: [prendaId], references: [id], onDelete: Cascade)
+  bolsa  BolsaUtiles? @relation(fields: [bolsaId], references: [id], onDelete: Cascade)
+
+  @@index([prendaId, orden])
+  @@index([bolsaId, orden])
+}
+
+model HistorialPrecio {
+  id             String   @id @default(cuid())
+  itemId         String
+  precioAnterior Int
+  precioNuevo    Int
+  usuarioId      String
+  creadoEn       DateTime @default(now())
+
+  item    InventoryItem @relation(fields: [itemId], references: [id])
+  usuario Usuario       @relation(fields: [usuarioId], references: [id])
+
+  @@index([itemId, creadoEn])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  usuarioId String
+  accion    String // "venta.anular", "item.precio.cambiar"
+  entidad   String
+  entidadId String
+  datos     Json? // antes / despues
+  creadoEn  DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([entidad, entidadId])
+  @@index([creadoEn])
+}

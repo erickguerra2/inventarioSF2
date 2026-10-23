@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    # Las pruebas de integracion corren contra un Postgres de verdad: lo que se
+    # esta probando son el FOR UPDATE, los CHECK y las transacciones.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: inventario
+          POSTGRES_PASSWORD: inventario_ci
+          POSTGRES_DB: inventario
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U inventario -d inventario"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://inventario:inventario_ci@localhost:5433/inventario?schema=public
+      SESSION_SECRET: secreto-solo-para-ci-con-mas-de-32-caracteres
+      MEDIA_BASE_URL: https://inventario.ccsf2.edu.gt
+      NODE_ENV: test
+      TZ: America/Guatemala
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npx prisma migrate deploy
+      - run: npm run seed
+      - run: npm test
