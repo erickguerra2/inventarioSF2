@@ -63,7 +63,8 @@ curl http://127.0.0.1:3000/health/db
 
 ## Endpoints disponibles hoy (Fase 1)
 
-Todo bajo `/api/v1`. Respuestas: `{ "data": ... }`. Errores:
+Todo bajo `/api/v1`. El contenido de cada respuesta va en `data`, y cuando `data` es una lista
+los metadatos (`meta`, `resumen`, `totales`, `notas`) van como hermanos, no dentro. Errores:
 `{ "error": { "code": "...", "message": "...", "details": {...} } }` — el frontend reacciona
 por `code`, no por el mensaje.
 

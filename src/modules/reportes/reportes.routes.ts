@@ -26,6 +26,16 @@ function enviarCsv<T>(
 
 const soloAdmin = { preHandler: requiereRol('ADMIN') };
 
+/**
+ * Forma de las respuestas (la misma que el resto de la API):
+ *
+ * - Un reporte con FILAS las pone en `data` y deja sus totales y notas como
+ *   hermanos, igual que /ventas o /inventario: `{ data: [...], totales, notas }`.
+ *   Los servicios ya devuelven exactamente eso, asi que la ruta no lo envuelve.
+ * - El corte de caja NO es una lista: es un solo objeto (el corte del dia), asi
+ *   que va envuelto como cualquier recurso: `{ data: corte }`.
+ */
+
 export const rutasReportes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', requiereAuth);
 
@@ -87,7 +97,7 @@ export const rutasReportes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return { data: reporte };
+    return reporte;
   });
 
   app.get('/tallas-mas-vendidas', soloAdmin, async (request, reply) => {
@@ -110,7 +120,7 @@ export const rutasReportes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return { data: reporte };
+    return reporte;
   });
 
   app.get('/existencias-valorizadas', soloAdmin, async (request, reply) => {
@@ -133,7 +143,7 @@ export const rutasReportes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return { data: reporte };
+    return reporte;
   });
 
   app.get('/bolsas-por-grado', soloAdmin, async (request, reply) => {
@@ -158,6 +168,6 @@ export const rutasReportes: FastifyPluginAsync = async (app) => {
       );
     }
 
-    return { data: reporte };
+    return reporte;
   });
 };

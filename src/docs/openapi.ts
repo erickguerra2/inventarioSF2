@@ -274,10 +274,11 @@ function parametrosDeRuta(ruta: string): JsonSchema[] {
 function respuestas(ruta: Ruta): JsonSchema {
   const base: JsonSchema = {
     '200': {
-      description: 'Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).',
+      description:
+        'Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.',
       content: {
         'application/json': {
-          schema: { type: 'object', properties: { data: {} } },
+          schema: { type: 'object', required: ['data'], properties: { data: {} } },
         },
       },
     },
@@ -357,7 +358,7 @@ export function construirEspecificacion() {
         '- **El dinero va en centavos enteros.** Q125.50 se envia y se recibe como 12550.',
         '- **Se vende con `itemId`**, que sirve igual para una talla de uniforme que para una bolsa.',
         '- **La sesion va en una cookie httpOnly.** Basta `credentials: "include"` en cada peticion; no hay token que guardar.',
-        '- Todas las respuestas correctas son `{ data }`, y `{ data, meta }` cuando paginan.',
+        '- **El contenido va siempre en `data`.** Si `data` es una lista, los metadatos (`meta`, `resumen`, `totales`, `notas`) van como hermanos de `data`, no dentro.',
         '- Los errores siempre traen `{ error: { code, message, details? } }`. Reaccione por `code`, no por el mensaje.',
       ].join('\n'),
     },

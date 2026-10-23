@@ -186,12 +186,18 @@ describe('corte de caja', () => {
 });
 
 describe('reportes de ventas', () => {
-  it('agrupa por maestra', async () => {
+  it('agrupa por maestra, con las filas en data y los totales como hermanos', async () => {
     const respuesta = await admin.get('/api/v1/reportes/ventas?agrupar=usuario');
     expect(respuesta.statusCode).toBe(200);
 
-    const reporte = respuesta.json().data;
+    const reporte = respuesta.json();
+
+    // La forma del sobre, igual que /ventas o /inventario: las filas van en
+    // `data` y los metadatos al lado, no anidados un nivel mas abajo.
+    expect(Array.isArray(reporte.data)).toBe(true);
+    expect(reporte.data[0]?.data).toBeUndefined();
     expect(reporte.agrupadoPor).toBe('usuario');
+    expect(reporte.totales).toBeDefined();
 
     const nombres = reporte.data.map((fila: { etiqueta: string }) => fila.etiqueta);
     expect(nombres).toContain('Lucía Méndez');
@@ -199,7 +205,7 @@ describe('reportes de ventas', () => {
 
   it('agrupa por tipo y avisa que los totales son antes de descuento', async () => {
     const respuesta = await admin.get('/api/v1/reportes/ventas?agrupar=tipo');
-    const reporte = respuesta.json().data;
+    const reporte = respuesta.json();
 
     const claves = reporte.data.map((fila: { clave: string }) => fila.clave);
     expect(claves).toContain('UNIFORME_TALLA');
@@ -211,7 +217,7 @@ describe('reportes de ventas', () => {
 
   it('agrupa por dia sin inflar el total al unir con las lineas', async () => {
     const respuesta = await admin.get('/api/v1/reportes/ventas?agrupar=dia');
-    const reporte = respuesta.json().data;
+    const reporte = respuesta.json();
 
     expect(reporte.data.length).toBeGreaterThan(0);
     expect(reporte.data[0].clave).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -254,7 +260,7 @@ describe('reportes de ventas', () => {
       const porDia = await admin.get(
         '/api/v1/reportes/ventas?agrupar=dia&desde=2026-03-01&hasta=2026-03-31',
       );
-      const claves = porDia.json().data.data.map((fila: { clave: string }) => fila.clave);
+      const claves = porDia.json().data.map((fila: { clave: string }) => fila.clave);
 
       expect(claves).toContain('2026-03-10');
       expect(claves).not.toContain('2026-03-11');
@@ -278,7 +284,7 @@ describe('reportes de ventas', () => {
 
     const fila = respuesta
       .json()
-      .data.data.find((candidata: { itemId: string }) => candidata.itemId === itemId);
+      .data.find((candidata: { itemId: string }) => candidata.itemId === itemId);
 
     expect(fila).toBeDefined();
     expect(fila.talla).toBe('M');
@@ -304,7 +310,7 @@ describe('existencias valorizadas', () => {
     const respuesta = await admin.get('/api/v1/reportes/existencias-valorizadas');
     expect(respuesta.statusCode).toBe(200);
 
-    const reporte = respuesta.json().data;
+    const reporte = respuesta.json();
     expect(reporte.data.length).toBeGreaterThan(0);
 
     // En el seed las tallas de uniforme no tienen costo registrado: el valor del
@@ -322,7 +328,7 @@ describe('bolsas por grado', () => {
     const respuesta = await admin.get('/api/v1/reportes/bolsas-por-grado?ciclo=2026');
     expect(respuesta.statusCode).toBe(200);
 
-    const reporte = respuesta.json().data;
+    const reporte = respuesta.json();
     expect(reporte.data.length).toBeGreaterThanOrEqual(6);
 
     for (const fila of reporte.data) {

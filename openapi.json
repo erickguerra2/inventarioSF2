@@ -3,7 +3,7 @@
   "info": {
     "title": "Inventario CCSF2",
     "version": "0.1.0",
-    "description": "Backend del inventario de uniformes y bolsas de utiles.\n\n- **El dinero va en centavos enteros.** Q125.50 se envia y se recibe como 12550.\n- **Se vende con `itemId`**, que sirve igual para una talla de uniforme que para una bolsa.\n- **La sesion va en una cookie httpOnly.** Basta `credentials: \"include\"` en cada peticion; no hay token que guardar.\n- Todas las respuestas correctas son `{ data }`, y `{ data, meta }` cuando paginan.\n- Los errores siempre traen `{ error: { code, message, details? } }`. Reaccione por `code`, no por el mensaje."
+    "description": "Backend del inventario de uniformes y bolsas de utiles.\n\n- **El dinero va en centavos enteros.** Q125.50 se envia y se recibe como 12550.\n- **Se vende con `itemId`**, que sirve igual para una talla de uniforme que para una bolsa.\n- **La sesion va en una cookie httpOnly.** Basta `credentials: \"include\"` en cada peticion; no hay token que guardar.\n- **El contenido va siempre en `data`.** Si `data` es una lista, los metadatos (`meta`, `resumen`, `totales`, `notas`) van como hermanos de `data`, no dentro.\n- Los errores siempre traen `{ error: { code, message, details? } }`. Reaccione por `code`, no por el mensaje."
   },
   "servers": [
     {
@@ -120,11 +120,14 @@
         "description": "Publico.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -153,11 +156,14 @@
         "description": "Publico.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -186,11 +192,14 @@
         "description": "Publico. Responde con Set-Cookie (sid, httpOnly). Se bloquea tras 5 intentos fallidos por IP + usuario.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -246,11 +255,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -290,11 +302,14 @@
         "description": "Requiere sesion. El frontend lo llama al cargar: 200 hay sesion, 401 mostrar login.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -331,11 +346,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -396,11 +414,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -489,11 +510,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -541,11 +565,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -628,11 +655,14 @@
         "description": "Solo ADMIN. Cierra todas las sesiones de ese usuario.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -706,11 +736,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -745,11 +778,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -818,11 +854,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -868,11 +907,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -946,11 +988,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -985,11 +1030,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1056,11 +1104,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1113,11 +1164,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1154,11 +1208,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1225,11 +1282,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1342,11 +1402,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1391,11 +1454,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1469,11 +1535,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1523,11 +1592,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1616,11 +1688,14 @@
         "description": "Solo ADMIN. No acepta stockActual: las existencias solo se mueven con un movimiento de inventario.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1699,11 +1774,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1753,11 +1831,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1852,11 +1933,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -1975,11 +2059,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2024,11 +2111,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2117,11 +2207,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2171,11 +2264,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2222,11 +2318,14 @@
         "description": "Solo ADMIN. El contenido es informativo: no cambia existencias ni precio, y puede quedar vacio.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2319,11 +2418,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2396,11 +2498,14 @@
         "description": "Requiere sesion. Exige la cabecera Idempotency-Key. Si la clave ya se uso responde 200 con la venta original, sin descontar de nuevo.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2518,11 +2623,14 @@
         "description": "Requiere sesion. Una maestra solo recibe las suyas, se ignora el usuarioId del query.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2649,11 +2757,14 @@
         "description": "Requiere sesion. Una venta ajena responde 404, no 403.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2700,11 +2811,14 @@
         "description": "Requiere sesion.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2751,11 +2865,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2829,11 +2946,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -2960,11 +3080,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3004,11 +3127,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3058,11 +3184,14 @@
         "description": "Solo ADMIN. Una transaccion. Con tipo APERTURA es la carga inicial del inventario.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3158,11 +3287,14 @@
         "description": "Solo ADMIN. La diferencia se registra como ajuste con motivo; no se corrige el stock en silencio.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3249,11 +3381,14 @@
         "description": "Solo ADMIN. La cantidad va SIEMPRE positiva: el tipo define si entra o sale. VENTA no se acepta aqui.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3344,11 +3479,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3435,11 +3573,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3479,11 +3620,14 @@
         "description": "Requiere sesion. El unico reporte que ve una maestra, y solo el suyo. Con formato=csv devuelve un CSV.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3553,11 +3697,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3643,11 +3790,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3729,11 +3879,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3788,11 +3941,14 @@
         "description": "Solo ADMIN.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
@@ -3866,11 +4022,14 @@
         "description": "Publico.",
         "responses": {
           "200": {
-            "description": "Correcto. El cuerpo es { data } (y { data, meta } cuando pagina).",
+            "description": "Correcto. El contenido va en `data`; si es una lista, los metadatos (meta, resumen, totales, notas) son hermanos de `data`.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {}
                   }
