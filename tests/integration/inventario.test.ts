@@ -9,8 +9,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { construirApp } from '../../src/app.js';
 import { registrarMovimientoManual } from '../../src/modules/inventario/inventario.service.js';
 import { prisma } from '../../src/shared/prisma.js';
+import { comoAdmin, type ClienteApi } from '../helpers/auth.js';
 
 let app: FastifyInstance;
+let api: ClienteApi;
 let itemId: string;
 let varianteId: string;
 let prendaId: string;
@@ -20,20 +22,17 @@ const STOCK_MINIMO = 5;
 beforeAll(async () => {
   app = await construirApp();
   await app.ready();
+  api = await comoAdmin(app);
 
   const categoria = await prisma.categoriaUniforme.findFirstOrThrow({
     where: { codigo: 'DIARIO' },
   });
 
-  const respuesta = await app.inject({
-    method: 'POST',
-    url: '/api/v1/uniformes/prendas',
-    payload: {
-      categoriaId: categoria.id,
-      nombre: 'ZZ Prenda de prueba',
-      tipoTalla: 'LETRA',
-      variantes: [{ talla: 'M', precioCentavos: 1000, stockMinimo: STOCK_MINIMO }],
-    },
+  const respuesta = await api.post('/api/v1/uniformes/prendas', {
+    categoriaId: categoria.id,
+    nombre: 'ZZ Prenda de prueba',
+    tipoTalla: 'LETRA',
+    variantes: [{ talla: 'M', precioCentavos: 1000, stockMinimo: STOCK_MINIMO }],
   });
 
   expect(respuesta.statusCode).toBe(201);
@@ -48,6 +47,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Limpieza: en produccion esto nunca se borraria (se desactiva), pero es data de prueba.
+  await prisma.auditLog.deleteMany({ where: { entidadId: { in: [itemId, prendaId] } } });
   await prisma.movimientoStock.deleteMany({ where: { itemId } });
   await prisma.historialPrecio.deleteMany({ where: { itemId } });
   await prisma.uniformeVariante.deleteMany({ where: { id: varianteId } });
@@ -65,16 +65,12 @@ async function stockDe(id: string) {
 
 describe('entradas en lote', () => {
   it('suma en una sola transaccion y consolida dos lineas del mismo item', async () => {
-    const respuesta = await app.inject({
-      method: 'POST',
-      url: '/api/v1/inventario/entradas',
-      payload: {
-        motivo: 'Compra a proveedor, factura de prueba',
-        lineas: [
-          { itemId, cantidad: 3 },
-          { itemId, cantidad: 2 }, // misma linea repetida: se consolida en 5
-        ],
-      },
+    const respuesta = await api.post('/api/v1/inventario/entradas', {
+      motivo: 'Compra a proveedor, factura de prueba',
+      lineas: [
+        { itemId, cantidad: 3 },
+        { itemId, cantidad: 2 }, // misma linea repetida: se consolida en 5
+      ],
     });
 
     expect(respuesta.statusCode).toBe(201);
@@ -90,16 +86,12 @@ describe('entradas en lote', () => {
   it('una entrada con un item inexistente no deja nada a medias', async () => {
     const antes = await stockDe(itemId);
 
-    const respuesta = await app.inject({
-      method: 'POST',
-      url: '/api/v1/inventario/entradas',
-      payload: {
-        motivo: 'Entrada con un id invalido',
-        lineas: [
-          { itemId, cantidad: 10 },
-          { itemId: 'no-existe', cantidad: 1 },
-        ],
-      },
+    const respuesta = await api.post('/api/v1/inventario/entradas', {
+      motivo: 'Entrada con un id invalido',
+      lineas: [
+        { itemId, cantidad: 10 },
+        { itemId: 'no-existe', cantidad: 1 },
+      ],
     });
 
     expect(respuesta.statusCode).toBe(404);
@@ -110,10 +102,9 @@ describe('entradas en lote', () => {
 
 describe('movimientos a mano', () => {
   it('una merma sin motivo se rechaza', async () => {
-    const respuesta = await app.inject({
-      method: 'POST',
-      url: `/api/v1/inventario/${itemId}/movimientos`,
-      payload: { cantidad: 1, tipo: 'MERMA' },
+    const respuesta = await api.post(`/api/v1/inventario/${itemId}/movimientos`, {
+      cantidad: 1,
+      tipo: 'MERMA',
     });
 
     expect(respuesta.statusCode).toBe(400);
@@ -121,10 +112,10 @@ describe('movimientos a mano', () => {
   });
 
   it('la merma resta aunque el cliente mande la cantidad en positivo', async () => {
-    const respuesta = await app.inject({
-      method: 'POST',
-      url: `/api/v1/inventario/${itemId}/movimientos`,
-      payload: { cantidad: 2, tipo: 'MERMA', motivo: 'Dos polos manchados en bodega' },
+    const respuesta = await api.post(`/api/v1/inventario/${itemId}/movimientos`, {
+      cantidad: 2,
+      tipo: 'MERMA',
+      motivo: 'Dos polos manchados en bodega',
     });
 
     expect(respuesta.statusCode).toBe(201);
@@ -137,10 +128,10 @@ describe('movimientos a mano', () => {
   });
 
   it('no se puede sacar mas de lo que hay', async () => {
-    const respuesta = await app.inject({
-      method: 'POST',
-      url: `/api/v1/inventario/${itemId}/movimientos`,
-      payload: { cantidad: 99, tipo: 'MERMA', motivo: 'Intento imposible' },
+    const respuesta = await api.post(`/api/v1/inventario/${itemId}/movimientos`, {
+      cantidad: 99,
+      tipo: 'MERMA',
+      motivo: 'Intento imposible',
     });
 
     expect(respuesta.statusCode).toBe(409);
@@ -149,10 +140,10 @@ describe('movimientos a mano', () => {
   });
 
   it('los movimientos de venta no se pueden registrar por aqui', async () => {
-    const porHttp = await app.inject({
-      method: 'POST',
-      url: `/api/v1/inventario/${itemId}/movimientos`,
-      payload: { cantidad: 1, tipo: 'VENTA', motivo: 'No deberia pasar' },
+    const porHttp = await api.post(`/api/v1/inventario/${itemId}/movimientos`, {
+      cantidad: 1,
+      tipo: 'VENTA',
+      motivo: 'No deberia pasar',
     });
     expect(porHttp.statusCode).toBe(400);
 
@@ -170,13 +161,9 @@ describe('movimientos a mano', () => {
 
 describe('conteo fisico', () => {
   it('registra la diferencia como ajuste en vez de corregir el stock', async () => {
-    const respuesta = await app.inject({
-      method: 'POST',
-      url: '/api/v1/inventario/conteos',
-      payload: {
-        motivo: 'Conteo de prueba',
-        lineas: [{ itemId, contado: 7 }],
-      },
+    const respuesta = await api.post('/api/v1/inventario/conteos', {
+      motivo: 'Conteo de prueba',
+      lineas: [{ itemId, contado: 7 }],
     });
 
     expect(respuesta.statusCode).toBe(201);
@@ -201,10 +188,8 @@ describe('conteo fisico', () => {
   it('un conteo que coincide no genera ningun movimiento', async () => {
     const antes = await prisma.movimientoStock.count({ where: { itemId } });
 
-    const respuesta = await app.inject({
-      method: 'POST',
-      url: '/api/v1/inventario/conteos',
-      payload: { lineas: [{ itemId, contado: 7 }] },
+    const respuesta = await api.post('/api/v1/inventario/conteos', {
+      lineas: [{ itemId, contado: 7 }],
     });
 
     expect(respuesta.statusCode).toBe(201);
@@ -217,15 +202,11 @@ describe('conteo fisico', () => {
   });
 
   it('rechaza el mismo item dos veces en el mismo conteo', async () => {
-    const respuesta = await app.inject({
-      method: 'POST',
-      url: '/api/v1/inventario/conteos',
-      payload: {
-        lineas: [
-          { itemId, contado: 7 },
-          { itemId, contado: 8 },
-        ],
-      },
+    const respuesta = await api.post('/api/v1/inventario/conteos', {
+      lineas: [
+        { itemId, contado: 7 },
+        { itemId, contado: 8 },
+      ],
     });
 
     expect(respuesta.statusCode).toBe(400);
@@ -234,14 +215,10 @@ describe('conteo fisico', () => {
 
 describe('kardex', () => {
   it('cuenta la historia completa y cierra en el stock actual', async () => {
-    const respuesta = await app.inject({
-      method: 'GET',
-      url: `/api/v1/inventario/${itemId}/kardex`,
-    });
-
+    const respuesta = await api.get(`/api/v1/inventario/${itemId}/kardex`);
     expect(respuesta.statusCode).toBe(200);
-    const cuerpo = respuesta.json();
 
+    const cuerpo = respuesta.json();
     expect(cuerpo.item.id).toBe(itemId);
     expect(cuerpo.periodo.saldoFinal).toBe(await stockDe(itemId));
 
@@ -256,12 +233,9 @@ describe('kardex', () => {
   it('filtra por fecha sin romper el saldo inicial', async () => {
     const manana = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
-    const respuesta = await app.inject({
-      method: 'GET',
-      url: `/api/v1/inventario/${itemId}/kardex?desde=${manana}`,
-    });
-
+    const respuesta = await api.get(`/api/v1/inventario/${itemId}/kardex?desde=${manana}`);
     const cuerpo = respuesta.json();
+
     expect(cuerpo.data).toHaveLength(0);
     // Todo lo anterior al periodo se arrastra como saldo inicial.
     expect(cuerpo.periodo.saldoInicial).toBe(await stockDe(itemId));
@@ -272,13 +246,13 @@ describe('kardex', () => {
 describe('alertas y vista unificada', () => {
   it('avisa cuando el stock queda en el minimo o por debajo', async () => {
     // 7 - 5 = 2, con minimo 5: entra en alerta con faltante 3.
-    await app.inject({
-      method: 'POST',
-      url: `/api/v1/inventario/${itemId}/movimientos`,
-      payload: { cantidad: 5, tipo: 'AJUSTE_NEG', motivo: 'Dejarlo bajo para la prueba' },
+    await api.post(`/api/v1/inventario/${itemId}/movimientos`, {
+      cantidad: 5,
+      tipo: 'AJUSTE_NEG',
+      motivo: 'Dejarlo bajo para la prueba',
     });
 
-    const respuesta = await app.inject({ method: 'GET', url: '/api/v1/inventario/alertas' });
+    const respuesta = await api.get('/api/v1/inventario/alertas');
     expect(respuesta.statusCode).toBe(200);
 
     const cuerpo = respuesta.json();
@@ -295,10 +269,7 @@ describe('alertas y vista unificada', () => {
   });
 
   it('el filtro bajoStock compara dos columnas de la misma fila', async () => {
-    const respuesta = await app.inject({
-      method: 'GET',
-      url: '/api/v1/inventario?bajoStock=true&perPage=100',
-    });
+    const respuesta = await api.get('/api/v1/inventario?bajoStock=true&perPage=100');
 
     const ids = respuesta.json().data.map((item: { id: string }) => item.id);
     expect(ids).toContain(itemId);
@@ -309,31 +280,24 @@ describe('alertas y vista unificada', () => {
   });
 
   it('lista uniformes y bolsas juntos, y sabe de donde viene cada item', async () => {
-    const bolsas = await app.inject({
-      method: 'GET',
-      url: '/api/v1/inventario?tipo=BOLSA_UTILES&perPage=100',
-    });
+    const bolsas = await api.get('/api/v1/inventario?tipo=BOLSA_UTILES&perPage=100');
     const datosBolsas = bolsas.json().data;
+
     expect(datosBolsas.length).toBeGreaterThan(0);
     expect(datosBolsas.every((item: { tipo: string }) => item.tipo === 'BOLSA_UTILES')).toBe(true);
     expect(datosBolsas[0].origen.clase).toBe('BOLSA_UTILES');
     expect(datosBolsas[0].origen.grado.nombre).toBeTruthy();
 
-    const uniformes = await app.inject({
-      method: 'GET',
-      url: '/api/v1/inventario?tipo=UNIFORME_TALLA&q=ZZ+Prenda',
-    });
+    const uniformes = await api.get('/api/v1/inventario?tipo=UNIFORME_TALLA&q=ZZ+Prenda');
     const datosUniformes = uniformes.json().data;
+
     expect(datosUniformes).toHaveLength(1);
     expect(datosUniformes[0].origen.talla).toBe('M');
     expect(datosUniformes[0].origen.categoria.codigo).toBe('DIARIO');
   });
 
   it('valoriza el inventario cuando el item tiene costo', async () => {
-    const respuesta = await app.inject({
-      method: 'GET',
-      url: '/api/v1/inventario?tipo=BOLSA_UTILES&perPage=100',
-    });
+    const respuesta = await api.get('/api/v1/inventario?tipo=BOLSA_UTILES&perPage=100');
 
     const conCosto = respuesta
       .json()
@@ -345,12 +309,9 @@ describe('alertas y vista unificada', () => {
 
 describe('integridad del ledger', () => {
   it('despues de entradas, mermas, ajustes y conteos el invariante sigue en pie', async () => {
-    const respuesta = await app.inject({
-      method: 'GET',
-      url: '/api/v1/admin/verificar-integridad',
-    });
-
+    const respuesta = await api.get('/api/v1/admin/verificar-integridad');
     expect(respuesta.statusCode).toBe(200);
+
     const datos = respuesta.json().data;
     expect(datos.inconsistentes).toEqual([]);
     expect(datos.ok).toBe(true);

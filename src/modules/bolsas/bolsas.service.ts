@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { auditar } from '../../shared/auditoria.js';
 import { Conflict, NotFound } from '../../shared/errors.js';
 import { prisma } from '../../shared/prisma.js';
 import { skuBolsa } from '../../shared/sku.js';
@@ -191,6 +192,28 @@ export async function actualizarBolsa(
           precioNuevo: datos.precioCentavos,
           usuarioId,
         },
+      });
+
+      await auditar(tx, {
+        usuarioId,
+        accion: 'item.precio.cambiar',
+        entidad: 'InventoryItem',
+        entidadId: bolsa.itemId,
+        detalle: {
+          sku: bolsa.item.sku,
+          antes: bolsa.item.precioCentavos,
+          despues: datos.precioCentavos,
+        },
+      });
+    }
+
+    if (datos.activo !== undefined && datos.activo !== bolsa.item.activo) {
+      await auditar(tx, {
+        usuarioId,
+        accion: datos.activo ? 'bolsa.reactivar' : 'bolsa.desactivar',
+        entidad: 'BolsaUtiles',
+        entidadId: id,
+        detalle: { nombre: bolsa.nombre, sku: bolsa.item.sku },
       });
     }
 

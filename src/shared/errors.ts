@@ -15,6 +15,7 @@ export type CodigoError =
   | 'CICLO_CERRADO'
   | 'CICLO_SIN_ACTIVAR'
   | 'VENTA_YA_ANULADA'
+  | 'DEMASIADOS_INTENTOS'
   | 'RESTRICCION_BD'
   | 'ERROR_INTERNO';
 
@@ -72,5 +73,17 @@ export class NoAutenticado extends AppError {
 export class SinPermiso extends AppError {
   constructor(mensaje = 'Esta accion no esta permitida para su usuario') {
     super(403, 'SIN_PERMISO', mensaje);
+  }
+}
+
+/** 429 — demasiados intentos de inicio de sesion. */
+export class DemasiadosIntentos extends AppError {
+  constructor(segundosRestantes: number) {
+    super(
+      429,
+      'DEMASIADOS_INTENTOS',
+      `Demasiados intentos fallidos. Intente de nuevo en ${Math.ceil(segundosRestantes / 60)} minuto(s).`,
+      { segundosRestantes },
+    );
   }
 }

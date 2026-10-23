@@ -107,6 +107,10 @@ export function errorHandler(
 
   // Errores de Fastify con statusCode propio (body mal formado, payload grande...).
   const statusFastify = (error as FastifyError).statusCode;
+  if (statusFastify === 429) {
+    reply.status(429).send(cuerpo('DEMASIADOS_INTENTOS', error.message));
+    return;
+  }
   if (typeof statusFastify === 'number' && statusFastify >= 400 && statusFastify < 500) {
     reply.status(statusFastify).send(cuerpo('VALIDACION', error.message));
     return;

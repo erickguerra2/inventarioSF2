@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { resolverActor } from '../../shared/actor.js';
+import { requiereRol, usuarioActual } from '../../shared/middleware/auth.js';
 import * as servicio from './inventario.service.js';
 import {
   conteoBodySchema,
@@ -11,10 +11,15 @@ import {
 } from './inventario.schemas.js';
 
 /**
- * Inventario: todo esto es de la administradora (a partir de la Fase 3 llevara
- * requiereRol('ADMIN')). Quien vende ve existencias por el catalogo, no por aqui.
+ * TODO el inventario es de la administradora: un hook para el modulo entero, no
+ * un permiso por ruta que se pueda olvidar en la siguiente que se agregue.
+ *
+ * Quien vende ve existencias a traves del catalogo (/uniformes, /bolsas), que es
+ * lo que necesita; el kardex y los ajustes no le aparecen.
  */
 export const rutasInventario: FastifyPluginAsync = async (app) => {
+  app.addHook('preHandler', requiereRol('ADMIN'));
+
   // Vista unificada: uniformes y bolsas en la misma lista.
   app.get('/', async (request) => {
     const filtros = listarInventarioQuerySchema.parse(request.query);
@@ -27,15 +32,15 @@ export const rutasInventario: FastifyPluginAsync = async (app) => {
   // "Entraron 25 bolsas de 4to primaria y 12 polos M": una transaccion.
   app.post('/entradas', async (request, reply) => {
     const datos = entradasBodySchema.parse(request.body);
-    const usuarioId = await resolverActor(request);
-    return reply.status(201).send({ data: await servicio.registrarEntradas(datos, usuarioId) });
+    const actor = usuarioActual(request);
+    return reply.status(201).send({ data: await servicio.registrarEntradas(datos, actor.id) });
   });
 
   // Conteo fisico: la diferencia se registra como ajuste, no se "corrige" el stock.
   app.post('/conteos', async (request, reply) => {
     const datos = conteoBodySchema.parse(request.body);
-    const usuarioId = await resolverActor(request);
-    return reply.status(201).send({ data: await servicio.registrarConteo(datos, usuarioId) });
+    const actor = usuarioActual(request);
+    return reply.status(201).send({ data: await servicio.registrarConteo(datos, actor.id) });
   });
 
   app.get('/:itemId', async (request) => {
@@ -46,10 +51,10 @@ export const rutasInventario: FastifyPluginAsync = async (app) => {
   app.post('/:itemId/movimientos', async (request, reply) => {
     const { itemId } = paramsItemIdSchema.parse(request.params);
     const datos = movimientoManualBodySchema.parse(request.body);
-    const usuarioId = await resolverActor(request);
+    const actor = usuarioActual(request);
     return reply
       .status(201)
-      .send({ data: await servicio.registrarMovimientoManual(itemId, datos, usuarioId) });
+      .send({ data: await servicio.registrarMovimientoManual(itemId, datos, actor.id) });
   });
 
   app.get('/:itemId/kardex', async (request) => {
@@ -60,6 +65,8 @@ export const rutasInventario: FastifyPluginAsync = async (app) => {
 };
 
 export const rutasAdmin: FastifyPluginAsync = async (app) => {
+  app.addHook('preHandler', requiereRol('ADMIN'));
+
   // Comprueba que stockActual == SUM(movimientos) para todos los items.
   app.get('/verificar-integridad', async () => ({ data: await servicio.verificarIntegridad() }));
 };

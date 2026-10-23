@@ -1122,12 +1122,20 @@ más no agregaba nada que el ledger no responda ya.*
 *Decisión tomada aquí: la API recibe la cantidad como magnitud positiva y el tipo de
 movimiento define el signo. Elimina por construcción el `AJUSTE_POS` de −5.*
 
-**Fase 3 — Auth, usuarios y permisos (1–2 días)**
-Login, hash de contraseñas, los dos roles, middleware `requiereRol`, alta y baja de maestras,
-auditoría, rate limit.
-*Va **antes** de ventas, no después: si varias maestras van a vender, cada venta y cada
-movimiento tiene que nacer con su `usuarioId` de verdad. Un usuario de prueba sirve para
-desarrollar, no para que la atribución exista.*
+**Fase 3 — Auth, usuarios y permisos — LISTO**
+Login con cookie `httpOnly` firmada y sesión en base de datos, argon2id, los dos roles,
+middleware `requiereRol` por módulo, alta/baja/reseteo de maestras, auditoría y bloqueo por
+intentos fallidos.
+*Dos desvíos conscientes respecto a lo escrito arriba:*
+*— El bloqueo cuenta solo los intentos **fallidos**, en lugar de limitar todas las peticiones
+a `/auth/login`. El ataque es adivinar contraseñas, que produce fallos; contar los aciertos
+solo castiga a quien sí se acuerda de la suya. El límite por peticiones queda como techo
+anti-inundación, más holgado.*
+*— Los movimientos de inventario **no** se duplican en `AuditLog`: el ledger ya guarda quién,
+cuándo, cuánto y por qué. La bitácora cubre precios, usuarios, contraseñas y
+desactivaciones de catálogo.*
+*— En la base se guarda el **sha256** del token de sesión, no el token: si la base se filtra,
+nadie puede resumir una sesión con lo que hay ahí.*
 
 **Fase 4 — Ventas (2–3 días)**
 Venta transaccional con locks ordenados, idempotencia, correlativo por secuencia, atribución

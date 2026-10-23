@@ -1,4 +1,5 @@
 import { Prisma, type TipoTalla } from '@prisma/client';
+import { auditar } from '../../shared/auditoria.js';
 import { Conflict, NotFound } from '../../shared/errors.js';
 import { presentarMedia } from '../../shared/media.js';
 import { prisma, type Tx } from '../../shared/prisma.js';
@@ -155,10 +156,14 @@ export async function crearPrenda(datos: CrearPrendaBody) {
   return obtenerPrenda(prendaId);
 }
 
-export async function actualizarPrenda(id: string, datos: ActualizarPrendaBody) {
+export async function actualizarPrenda(
+  id: string,
+  datos: ActualizarPrendaBody,
+  usuarioId: string,
+) {
   const prenda = await prisma.prenda.findUnique({
     where: { id },
-    select: { id: true, variantes: { select: { itemId: true } } },
+    select: { id: true, nombre: true, variantes: { select: { itemId: true } } },
   });
   if (!prenda) throw new NotFound('La prenda no existe');
 
@@ -179,14 +184,22 @@ export async function actualizarPrenda(id: string, datos: ActualizarPrendaBody) 
         where: { id: { in: prenda.variantes.map((variante) => variante.itemId) } },
         data: { activo: datos.activo },
       });
+
+      await auditar(tx, {
+        usuarioId,
+        accion: datos.activo ? 'prenda.reactivar' : 'prenda.desactivar',
+        entidad: 'Prenda',
+        entidadId: id,
+        detalle: { nombre: prenda.nombre, tallasAfectadas: prenda.variantes.length },
+      });
     }
   });
 
   return obtenerPrenda(id);
 }
 
-export async function desactivarPrenda(id: string) {
-  return actualizarPrenda(id, { activo: false });
+export async function desactivarPrenda(id: string, usuarioId: string) {
+  return actualizarPrenda(id, { activo: false }, usuarioId);
 }
 
 export async function crearVariante(prendaId: string, datos: VarianteNueva) {
@@ -236,6 +249,18 @@ export async function actualizarVariante(
           precioAnterior: variante.item.precioCentavos,
           precioNuevo: datos.precioCentavos,
           usuarioId,
+        },
+      });
+
+      await auditar(tx, {
+        usuarioId,
+        accion: 'item.precio.cambiar',
+        entidad: 'InventoryItem',
+        entidadId: variante.itemId,
+        detalle: {
+          sku: variante.item.sku,
+          antes: variante.item.precioCentavos,
+          despues: datos.precioCentavos,
         },
       });
     }

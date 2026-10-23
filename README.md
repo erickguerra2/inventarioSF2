@@ -55,6 +55,7 @@ curl http://127.0.0.1:3000/health/db
 | `npm run migrate` | Nueva migración en desarrollo |
 | `npm run migrate:deploy` | Aplica migraciones pendientes (es lo que corre en el servidor) |
 | `npm run seed` | Datos iniciales. Es idempotente: se puede repetir |
+| `npm run sesiones:limpiar` | Borra sesiones vencidas (para una tarea diaria) |
 | `npm run studio` | Prisma Studio, para ver la base a mano |
 | `npm run db:up` / `npm run db:down` | Postgres en Docker |
 | `npm run db:reset` | Borra y reconstruye la base. **Destructivo** |
@@ -66,7 +67,15 @@ Todo bajo `/api/v1`. Respuestas: `{ "data": ... }`. Errores:
 por `code`, no por el mensaje.
 
 ```
-GET    /health                         GET  /health/db
+GET    /health                         GET  /health/db      # publicas
+
+POST   /auth/login                     # { usuario, password } -> cookie de sesión
+POST   /auth/logout
+GET    /auth/me                        # 200 hay sesión / 401 mostrar login
+
+GET    /usuarios                       POST /usuarios       # solo ADMIN
+GET    /usuarios/:id                   PATCH /usuarios/:id
+POST   /usuarios/:id/password
 
 GET    /niveles                        POST /niveles
 GET    /grados?nivelId=                POST /grados
@@ -140,6 +149,40 @@ Nota para el frontend: **se vende con `itemId`**, no con el id de la variante ni
 bolsa. El `itemId` es la unidad de inventario, y es lo que recibirá `POST /ventas` en la
 Fase 4.
 
+### Sesión y permisos
+
+La sesión va en una **cookie `httpOnly` firmada**, no en un token que el JavaScript pueda
+leer. Para el frontend eso es menos trabajo, no más: no hay token que guardar ni renovar.
+
+```js
+// Basta con esto en cada petición. No hay header Authorization.
+fetch('/api/v1/uniformes/prendas', { credentials: 'include' })
+```
+
+Al cargar la app, un `GET /auth/me`: si responde `200` hay sesión, si responde `401` se
+muestra el login. La sesión dura 12 h de inactividad y se renueva con el uso.
+
+| Acción | ADMIN | VENDEDOR (maestra) |
+|---|---|---|
+| Ver catálogo, bolsas, grados | sí | sí |
+| Ver inventario, kardex, alertas | sí | **403** |
+| Entradas, ajustes, conteos | sí | **403** |
+| Crear/editar prendas, bolsas, precios | sí | **403** |
+| Administrar usuarios | sí | **403** |
+| Registrar ventas (Fase 4) | sí | sí |
+
+El permiso se niega en el backend, no escondiendo botones: el frontend decide qué mostrar
+con `usuario.rol`, pero la regla vive en el servidor. Sin sesión, todo responde `401`.
+
+Dos detalles de seguridad que conviene no deshacer sin pensarlo:
+
+- **El login no revela si un usuario existe**: contraseña mala y usuario inexistente
+  devuelven exactamente la misma respuesta, y tardan lo mismo.
+- **El bloqueo por intentos es por IP + usuario**, no solo por IP: todo el colegio sale por
+  la misma IP pública, así que bloquear por IP dejaría a todas afuera porque una se
+  equivocó. Son 5 intentos fallidos y 15 minutos de espera; los intentos exitosos no
+  cuentan.
+
 ## Estructura
 
 ```
@@ -173,16 +216,16 @@ accede a datos.
 | 0 — Cimientos (TS, Fastify, Prisma, Docker, errores, health) | **Listo** |
 | 1 — Catálogo (uniformes, bolsas, estructura escolar, seed) | **Listo** |
 | 2 — Inventario: entradas, ajustes, conteo, kardex, alertas | **Listo** |
-| 3 — Auth, usuarios y permisos | Pendiente |
+| 3 — Auth, usuarios y permisos | **Listo** |
 | 4 — Ventas | Pendiente |
 | 5 — Reportes, corte de caja y despliegue | Pendiente |
 
 Dos cosas que conviene saber mientras tanto:
 
-- **Todavía no hay autenticación**, así que los endpoints están abiertos: no exponer esto a
-  internet antes de la Fase 3. Las acciones que necesitan un usuario (cambiar un precio,
-  mover inventario) se atribuyen al `admin` del seed mediante `src/shared/actor.ts`, que es
-  temporal y se reemplaza por la sesión real en la Fase 3.
+- **Las contraseñas del seed son de desarrollo.** Los tres usuarios (`admin`, `lucia.m`,
+  `ana.c`) se crean con el valor de `SEED_ADMIN_PASSWORD` del `.env`. Antes de usar el
+  sistema de verdad, la administradora cambia la suya y resetea las de las maestras desde
+  `POST /usuarios/:id/password`.
 - **Los precios del seed son de ejemplo.** `uniformes-ccsf2.md` dice que los del sitio
   anterior eran valores de prueba (Q1.00) y que hay que definir los reales; los del seed son
   inventados para poder probar con números distinguibles. Se corrigen con
