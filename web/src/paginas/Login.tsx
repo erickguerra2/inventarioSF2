@@ -27,8 +27,13 @@ export function Login() {
         onSubmit={enviar}
         className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
       >
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-marca">Inventario CCSF2</h1>
+        <div className="mb-6 text-center">
+          <img
+            src="/logo.jpg"
+            alt="Centro Cultural Sagrada Familia 2"
+            className="mx-auto h-24 w-24 object-contain"
+          />
+          <h1 className="mt-3 text-xl font-semibold text-azul">Inventario</h1>
           <p className="mt-1 text-sm text-slate-600">Uniformes y bolsas de útiles</p>
         </div>
 

@@ -4,6 +4,7 @@ import { Tarjeta, Titulo } from './componentes/ui.tsx';
 import { Inicio } from './paginas/Inicio.tsx';
 import { Login } from './paginas/Login.tsx';
 import { Pendiente } from './paginas/Pendiente.tsx';
+import { Vender } from './paginas/Vender.tsx';
 import { RutaPrivada } from './sesion/RutaPrivada.tsx';
 
 function NoEncontrada() {
@@ -33,16 +34,7 @@ export function App() {
       >
         <Route path="/" element={<Inicio />} />
 
-        <Route
-          path="/vender"
-          element={
-            <Pendiente
-              titulo="Vender"
-              fase={2}
-              detalle="Buscar una talla o una bolsa, armar el total y cobrar. Incluye el recibo imprimible y la clave de idempotencia para que el doble clic no cobre dos veces."
-            />
-          }
-        />
+        <Route path="/vender" element={<Vender />} />
         <Route
           path="/ventas"
           element={

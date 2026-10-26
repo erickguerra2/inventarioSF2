@@ -1,8 +1,9 @@
 # Plan de frontend — Inventario CCSF2 (React + Vite)
 
-> Para quien trabaje en la interfaz. El backend está terminado y probado (93 pruebas), y la
-> **fase 1 del frontend ya está hecha** (ver §6): el proyecto vive en `web/`, con el cliente
-> de API, el login, la sesión, las rutas protegidas y el layout por rol funcionando.
+> Para quien trabaje en la interfaz. El backend está terminado y probado (93 pruebas), y las
+> **fases 1 y 2 del frontend ya están hechas** (ver §6): el proyecto vive en `web/`, con el
+> cliente de API, la sesión, el layout por rol y la pantalla de venta con su recibo
+> funcionando contra el backend real.
 >
 > Documentos hermanos:
 > - [README.md](README.md) — cómo levantar el backend y la lista de endpoints.
@@ -261,6 +262,14 @@ Es la única que usa una maestra, con gente esperando. Diseñala para eso:
 - **Buscar y agregar rápido.** Un campo de búsqueda con foco automático que filtre prendas y
   bolsas al mismo tiempo (`GET /uniformes/prendas` + `GET /bolsas?ciclo=2026`). Que se pueda
   usar con teclado de principio a fin: escribir, Enter, escribir, Enter, cobrar.
+- **La búsqueda calza por principio de palabra, no por subcadena.** Esto se descubrió
+  probando: con subcadena, escribir `polo m` también encontraba la talla **L**, porque la
+  categoría "Uniforme de diario" contiene una "m" — y como Enter agrega el primer resultado,
+  despachaba la talla equivocada sin que nadie lo notara. Cada palabra escrita tiene que ser
+  el principio de alguna palabra del producto (`src/venta/vendibles.ts`).
+- **No reordenar lo que el backend ya ordenó.** Las tallas vienen XS, S, M, L, XL; ordenar
+  por texto las deja L, M, S, XL, XS. El orden del catálogo se conserva y solo se mueven los
+  agotados al final.
 - **Las tallas agotadas se muestran, deshabilitadas.** Vienen con `disponible: false`. No las
   escondas: la vendedora necesita ver que esa talla existe y hay que pedirla. Si la agrega
   igual, el backend responde `409 STOCK_INSUFICIENTE` con `details.disponible`.
@@ -376,7 +385,7 @@ Cada fase deja algo que se puede usar y mostrar.
 | Fase | Qué | Por qué en ese orden |
 |---|---|---|
 | **1 — LISTA** | Proyecto, cliente de API, login, `/auth/me`, rutas protegidas, layout con el rol | Sin esto no se puede probar nada más. |
-| **2** | **Punto de venta + recibo** | Es el corazón y lo que más se usa. Terminarlo temprano deja ver el sistema funcionando de verdad. |
+| **2 — LISTA** | **Punto de venta + recibo** | Es el corazón y lo que más se usa. Terminarlo temprano deja ver el sistema funcionando de verdad. |
 | **3** | Mis ventas, recibo reimprimible, corte de caja | Completa todo lo que necesita una maestra. Con esto ya se puede soltar a producción para vender. |
 | **4** | Catálogo: uniformes y bolsas | Le quita a la administradora el Prisma Studio de encima. |
 | **5** | Inventario: existencias, entradas, conteo, kardex, alertas | Lo que más usa la administradora cada semana. |
@@ -384,24 +393,34 @@ Cada fase deja algo que se puede usar y mostrar.
 
 Si hay que recortar, recortá la fase 6, no la 2.
 
-**Lo que dejó la fase 1**, para no volver a decidirlo:
+**Lo que ya está construido**, para no volver a decidirlo:
 
 ```
 web/
+  public/logo.jpg           el logo del colegio
   vite.config.ts            proxy de /api al backend (cookie del mismo origen)
   src/
+    index.css               paleta del colegio y el CSS de impresión del recibo
     api/cliente.ts          api() y apiConMeta(), ErrorApi, credentials: include
     api/errores.ts          mensaje por `code` y campos inválidos de un 400
     api/modelos.ts          tipos de respuesta escritos a mano
     api/esquema.ts          generado del openapi.json (npm run tipos)
     sesion/sesion.ts        useSesion, useIniciarSesion, useCerrarSesion
     sesion/RutaPrivada.tsx  redirige a /login, y bloquea las de solo ADMIN
+    venta/vendibles.ts      uniformes + bolsas aplanados, y la búsqueda
+    venta/carrito.ts        el carrito y la conversión a centavos
     componentes/Layout.tsx  cabecera, navegación filtrada por rol, cerrar sesión
+    componentes/Recibo.tsx  recibo imprimible (window.print)
     componentes/ui.tsx      Tarjeta, Titulo, Aviso, Boton, Campo, Quetzales...
     paginas/Login.tsx       formulario y manejo de los errores del login
     paginas/Inicio.tsx      tablero distinto por rol, con datos reales
+    paginas/Vender.tsx      el punto de venta
     paginas/Pendiente.tsx   marcador de las pantallas que faltan
 ```
+
+La paleta sale del logo y del sitio anterior, sin inventar colores: verde institucional
+`#245501` (documentado en `uniformes-ccsf2.md`) para la cabecera y los botones, verde salvia
+`#8fad7e` (muestreado del logo) para acentos, y azul `#002746` para los títulos.
 
 Las pantallas que faltan **ya están en la navegación** y muestran de qué fase son. Así se ve
 la forma completa del sistema —y la diferencia entre los dos roles— desde el primer día, sin

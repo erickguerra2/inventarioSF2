@@ -37,9 +37,16 @@ export function Layout() {
     <div className="min-h-screen bg-fondo">
       <header className="bg-marca text-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
-          <div>
-            <p className="text-sm font-semibold tracking-wide">INVENTARIO CCSF2</p>
-            <p className="text-xs text-white/70">Uniformes y bolsas de útiles</p>
+          <div className="flex items-center gap-3">
+            <img
+              src="/logo.jpg"
+              alt="Centro Cultural Sagrada Familia 2"
+              className="h-11 w-11 rounded-md bg-white object-contain p-1"
+            />
+            <div>
+              <p className="text-sm font-semibold tracking-wide">INVENTARIO</p>
+              <p className="text-xs text-white/70">Uniformes y bolsas de útiles</p>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

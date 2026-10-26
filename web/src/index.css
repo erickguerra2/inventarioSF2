@@ -1,13 +1,23 @@
 @import 'tailwindcss';
 
 /*
- * Los colores salen de uniformes-ccsf2.md: son los del colegio, no inventados.
- *   azul #002746, verde #245501, fondo #F2F4F5
+ * Paleta del colegio. Ningun color es inventado:
+ *
+ * - marca     verde institucional, documentado en uniformes-ccsf2.md (#245501).
+ *             Oscuro a proposito: es el fondo de la cabecera y de los botones,
+ *             y con texto blanco encima da buen contraste.
+ * - salvia    el verde del logo, muestreado de logo.jpg. Es claro, asi que sirve
+ *             para fondos y acentos, no para texto blanco encima.
+ * - azul      el azul del logo y del sitio anterior (#002746). Titulos y texto.
+ *
+ * marca-claro es el unico derivado: una variante del verde institucional para
+ * el estado hover.
  */
 @theme {
-  --color-marca: #002746;
-  --color-marca-claro: #0a3d6b;
-  --color-exito: #245501;
+  --color-marca: #245501;
+  --color-marca-claro: #2f6d02;
+  --color-salvia: #8fad7e;
+  --color-azul: #002746;
   --color-fondo: #f2f4f5;
 }
 
@@ -21,8 +31,29 @@ body {
     sans-serif;
 }
 
-/* El recibo se imprime desde el navegador: nada de PDF por ahora. */
+/*
+ * Impresion del recibo: se oculta todo y se deja visible solo el recibo.
+ * Se usa `visibility` y no `display` para que el recibo conserve su maquetacion.
+ */
 @media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #recibo-impresion,
+  #recibo-impresion * {
+    visibility: visible;
+  }
+
+  #recibo-impresion {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    box-shadow: none;
+  }
+
   .no-imprimir {
     display: none !important;
   }

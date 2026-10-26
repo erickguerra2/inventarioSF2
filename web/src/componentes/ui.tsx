@@ -11,7 +11,7 @@ export function Tarjeta({ children, className = '' }: { children: ReactNode; cla
 export function Titulo({ children, ayuda }: { children: ReactNode; ayuda?: string }) {
   return (
     <div className="mb-5">
-      <h1 className="text-2xl font-semibold text-marca">{children}</h1>
+      <h1 className="text-2xl font-semibold text-azul">{children}</h1>
       {ayuda ? <p className="mt-1 text-sm text-slate-600">{ayuda}</p> : null}
     </div>
   );
@@ -92,11 +92,7 @@ export function Quetzales({ centavos }: { centavos: number }) {
 export function EtiquetaRol({ rol }: { rol: string }) {
   const esAdmin = rol === 'ADMIN';
   return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-        esAdmin ? 'bg-marca/10 text-marca' : 'bg-green-100 text-green-900'
-      }`}
-    >
+    <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-white">
       {esAdmin ? 'Administradora' : 'Maestra'}
     </span>
   );
