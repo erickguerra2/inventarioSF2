@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+/*
+ * Los colores salen de uniformes-ccsf2.md: son los del colegio, no inventados.
+ *   azul #002746, verde #245501, fondo #F2F4F5
+ */
+@theme {
+  --color-marca: #002746;
+  --color-marca-claro: #0a3d6b;
+  --color-exito: #245501;
+  --color-fondo: #f2f4f5;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+}
+
+/* El recibo se imprime desde el navegador: nada de PDF por ahora. */
+@media print {
+  .no-imprimir {
+    display: none !important;
+  }
+}

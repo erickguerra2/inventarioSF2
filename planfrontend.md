@@ -1,7 +1,8 @@
 # Plan de frontend — Inventario CCSF2 (React + Vite)
 
-> Para quien va a construir la interfaz. El backend ya está terminado y probado
-> (93 pruebas), y no hay nada de frontend todavía: esta es la hoja en blanco.
+> Para quien trabaje en la interfaz. El backend está terminado y probado (93 pruebas), y la
+> **fase 1 del frontend ya está hecha** (ver §6): el proyecto vive en `web/`, con el cliente
+> de API, el login, la sesión, las rutas protegidas y el layout por rol funcionando.
 >
 > Documentos hermanos:
 > - [README.md](README.md) — cómo levantar el backend y la lista de endpoints.
@@ -374,7 +375,7 @@ Cada fase deja algo que se puede usar y mostrar.
 
 | Fase | Qué | Por qué en ese orden |
 |---|---|---|
-| **1** | Proyecto, cliente de API, login, `/auth/me`, rutas protegidas, layout con el rol | Sin esto no se puede probar nada más. |
+| **1 — LISTA** | Proyecto, cliente de API, login, `/auth/me`, rutas protegidas, layout con el rol | Sin esto no se puede probar nada más. |
 | **2** | **Punto de venta + recibo** | Es el corazón y lo que más se usa. Terminarlo temprano deja ver el sistema funcionando de verdad. |
 | **3** | Mis ventas, recibo reimprimible, corte de caja | Completa todo lo que necesita una maestra. Con esto ya se puede soltar a producción para vender. |
 | **4** | Catálogo: uniformes y bolsas | Le quita a la administradora el Prisma Studio de encima. |
@@ -382,6 +383,29 @@ Cada fase deja algo que se puede usar y mostrar.
 | **6** | Reportes, exportación, usuarios | Lo último porque hasta aquí no hay suficientes datos para que los reportes digan algo. |
 
 Si hay que recortar, recortá la fase 6, no la 2.
+
+**Lo que dejó la fase 1**, para no volver a decidirlo:
+
+```
+web/
+  vite.config.ts            proxy de /api al backend (cookie del mismo origen)
+  src/
+    api/cliente.ts          api() y apiConMeta(), ErrorApi, credentials: include
+    api/errores.ts          mensaje por `code` y campos inválidos de un 400
+    api/modelos.ts          tipos de respuesta escritos a mano
+    api/esquema.ts          generado del openapi.json (npm run tipos)
+    sesion/sesion.ts        useSesion, useIniciarSesion, useCerrarSesion
+    sesion/RutaPrivada.tsx  redirige a /login, y bloquea las de solo ADMIN
+    componentes/Layout.tsx  cabecera, navegación filtrada por rol, cerrar sesión
+    componentes/ui.tsx      Tarjeta, Titulo, Aviso, Boton, Campo, Quetzales...
+    paginas/Login.tsx       formulario y manejo de los errores del login
+    paginas/Inicio.tsx      tablero distinto por rol, con datos reales
+    paginas/Pendiente.tsx   marcador de las pantallas que faltan
+```
+
+Las pantallas que faltan **ya están en la navegación** y muestran de qué fase son. Así se ve
+la forma completa del sistema —y la diferencia entre los dos roles— desde el primer día, sin
+fingir que algo funciona.
 
 ---
 

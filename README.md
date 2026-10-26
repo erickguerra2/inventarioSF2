@@ -44,6 +44,23 @@ curl http://127.0.0.1:3000/health/db
 > El `.env` no se sube al repositorio. Antes de usar el sistema de verdad hay que generar
 > un `SESSION_SECRET` propio (el comando está en `.env.example`).
 
+## El frontend
+
+Vive en [`web/`](web) (React + Vite + TypeScript) y su plan está en
+[planfrontend.md](planfrontend.md). Con el backend corriendo:
+
+```bash
+npm --prefix web install
+npm --prefix web run dev     # http://127.0.0.1:5173
+```
+
+El Vite de `web/` hace proxy de `/api` al backend en el puerto 3000, para que la cookie de
+sesión sea del mismo origen que la página — igual que en producción, donde nginx sirve los
+estáticos y hace proxy de `/api`.
+
+Para entrar, los usuarios del seed (`admin`, `lucia.m`, `ana.c`) con la contraseña de
+`SEED_ADMIN_PASSWORD`.
+
 ## Scripts
 
 | Comando | Qué hace |
