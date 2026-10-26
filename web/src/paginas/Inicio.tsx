@@ -84,7 +84,7 @@ export function Inicio() {
         </Tarjeta>
 
         {administradora ? (
-          <Link to="/inventario">
+          <Link to="/inventario/alertas">
             <Tarjeta className="h-full transition hover:shadow">
               <p className="text-sm font-medium text-slate-500">Hay que reponer</p>
               {alertas.isPending ? (

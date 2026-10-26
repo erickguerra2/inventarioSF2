@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/cliente.ts';
 import type { Bolsa, Prenda, TipoItem } from '../api/modelos.ts';
+import { calzaPorPalabras, enPalabras } from '../utilidades/texto.ts';
 
 /**
  * Una cosa que se puede vender. Uniformes y bolsas se aplanan a la MISMA forma
@@ -21,19 +22,6 @@ export type Vendible = {
   orden: number;
 };
 
-export function normalizar(texto: string): string {
-  return texto
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
-}
-
-/** "Polo institucional - M" -> ["polo", "institucional", "m"] */
-function enPalabras(texto: string): string[] {
-  return normalizar(texto)
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
-}
 
 function dePrenda(prenda: Prenda): Array<Omit<Vendible, 'orden'>> {
   return prenda.variantes.map((variante) => ({
@@ -93,27 +81,17 @@ export function useVendibles() {
 
 /**
  * Busca por TODAS las palabras escritas, en cualquier orden: "polo m" encuentra
- * el polo talla M, y "4to" encuentra la bolsa de 4to primaria.
- *
- * Cada palabra tiene que calzar con el PRINCIPIO de alguna palabra del producto,
- * no en cualquier parte. Esa diferencia importa: buscando por subcadena, "polo m"
- * tambien encontraba la talla L, porque "uniforme" contiene una m — y vendiendo
- * rapido eso despacha la talla equivocada.
+ * el polo talla M, y "4to" encuentra la bolsa de 4to primaria. El por que de la
+ * coincidencia por principio de palabra esta en utilidades/texto.ts.
  *
  * Los agotados salen al final pero NO se esconden: quien vende necesita ver que
  * esa talla existe y que hay que pedirla.
  */
 export function buscar(vendibles: Vendible[], consulta: string): Vendible[] {
-  const buscadas = enPalabras(consulta);
-
   const encontrados =
-    buscadas.length === 0
+    consulta.trim() === ''
       ? vendibles
-      : vendibles.filter((vendible) =>
-          buscadas.every((buscada) =>
-            vendible.palabras.some((palabra) => palabra.startsWith(buscada)),
-          ),
-        );
+      : vendibles.filter((vendible) => calzaPorPalabras(vendible.palabras, consulta));
 
   // Disponibles primero; dentro de cada grupo, el orden del catalogo.
   return [...encontrados].sort((a, b) =>

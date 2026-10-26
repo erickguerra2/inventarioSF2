@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma, type TipoMovimiento } from '@prisma/client';
 import { BadRequest, Conflict, NotFound } from '../../shared/errors.js';
+import { diaLocal } from '../../shared/fechas.js';
 import { paginar, type Paginacion } from '../../shared/pagination.js';
 import { prisma, type Tx } from '../../shared/prisma.js';
 import { tiposQueExigenMotivo } from './inventario.schemas.js';
@@ -380,7 +381,9 @@ export async function registrarConteo(datos: ConteoBody, usuarioId: string) {
 
   const lineas = [...datos.lineas].sort((a, b) => a.itemId.localeCompare(b.itemId));
   const conteoId = randomUUID();
-  const motivo = datos.motivo ?? `Conteo fisico ${new Date().toISOString().slice(0, 10)}`;
+  // El dia en hora de Guatemala, no en UTC: un conteo de las once de la noche
+  // quedaria firmado con la fecha del dia siguiente, dentro de la bitacora.
+  const motivo = datos.motivo ?? `Conteo fisico ${diaLocal()}`;
 
   const resultado = await prisma.$transaction(async (tx) => {
     const detalle = [];

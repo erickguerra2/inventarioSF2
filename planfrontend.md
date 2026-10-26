@@ -1,10 +1,11 @@
 # Plan de frontend — Inventario CCSF2 (React + Vite)
 
 > Para quien trabaje en la interfaz. El backend está terminado y probado (93 pruebas), y las
-> **fases 1 a 4 del frontend ya están hechas** (ver §6): el proyecto vive en `web/`, con el
-> cliente de API, la sesión, el layout por rol, la pantalla de venta con su recibo, el listado
-> de ventas con anulación, el corte de caja y el catálogo de uniformes y bolsas, todo
-> funcionando contra el backend real. Lo que sigue es inventario (fase 5).
+> **fases 1 a 5 del frontend ya están hechas** (ver §6): el proyecto vive en `web/` y cubre
+> sesión, venta, recibo, listado de ventas con anulación, corte de caja, catálogo de uniformes
+> y bolsas, e inventario completo (existencias, entradas, conteo físico, kardex y alertas),
+> todo funcionando contra el backend real. Lo que falta son los reportes y los usuarios
+> (fase 6).
 >
 > Documentos hermanos:
 > - [README.md](README.md) — cómo levantar el backend y la lista de endpoints.
@@ -389,7 +390,7 @@ Cada fase deja algo que se puede usar y mostrar.
 | **2 — LISTA** | **Punto de venta + recibo** | Es el corazón y lo que más se usa. Terminarlo temprano deja ver el sistema funcionando de verdad. |
 | **3 — LISTA** | Mis ventas, recibo reimprimible, corte de caja | Completa todo lo que necesita una maestra. Con esto ya se puede soltar a producción para vender. |
 | **4 — LISTA** | Catálogo: uniformes y bolsas | Le quita a la administradora el Prisma Studio de encima. |
-| **5** | Inventario: existencias, entradas, conteo, kardex, alertas | Lo que más usa la administradora cada semana. |
+| **5 — LISTA** | Inventario: existencias, entradas, conteo, kardex, alertas | Lo que más usa la administradora cada semana. |
 | **6** | Reportes, exportación, usuarios | Lo último porque hasta aquí no hay suficientes datos para que los reportes digan algo. |
 
 Si hay que recortar, recortá la fase 6, no la 2.
@@ -410,6 +411,9 @@ web/
     sesion/RutaPrivada.tsx  redirige a /login, y bloquea las de solo ADMIN
     venta/vendibles.ts      uniformes + bolsas aplanados, y la búsqueda
     venta/carrito.ts        el carrito y la conversión a centavos
+    inventario/items.ts     los ítems del inventario, búsqueda e invalidación
+    inventario/*.tsx        existencias, entradas, conteo, alertas, kardex, movimiento
+    utilidades/texto.ts     búsqueda por principio de palabra (compartida)
     utilidades/fechas.ts    YYYY-MM-DD local; la zona la resuelve el backend
     componentes/edicion.tsx edición en línea de montos y enteros, dentro de la tabla
     componentes/Layout.tsx  cabecera, navegación filtrada por rol, cerrar sesión
@@ -422,6 +426,7 @@ web/
     paginas/Corte.tsx       corte de caja del día, con exportación a CSV
     paginas/Catalogo.tsx    prendas y tallas, con precios editables en línea
     paginas/Bolsas.tsx      bolsas por ciclo, editor de la lista, duplicar, imprimir
+    paginas/Inventario.tsx  pestañas de inventario (rutas anidadas)
     paginas/Pendiente.tsx   marcador de las pantallas que faltan
 ```
 
@@ -439,6 +444,14 @@ Dos decisiones del catálogo que vale la pena no deshacer:
 - **Cada campo editable dice qué es** (`aria-label` con "Precio de la talla M: Q 85.00").
   Sin eso, una tabla con quince campos editables presenta quince botones que se llaman
   igual, y deja de poderse usar por teclado.
+
+Y dos del inventario:
+
+- **Ingresar existencias y contar usan el mismo gesto que vender**: buscar, Enter, repetir.
+  Es la pantalla que más usa la administradora, y ese gesto ya está aprendido.
+- **El conteo muestra las tres columnas antes de guardar** (sistema, contado, diferencia en
+  rojo). El valor de contar está en *ver* la diferencia; si la pantalla solo pidiera el
+  número nuevo, el faltante pasaría sin que nadie lo note.
 
 La paleta sale del logo y del sitio anterior, sin inventar colores: verde institucional
 `#245501` (documentado en `uniformes-ccsf2.md`) para la cabecera y los botones, verde salvia

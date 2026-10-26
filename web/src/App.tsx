@@ -3,9 +3,14 @@ import { Layout } from './componentes/Layout.tsx';
 import { Tarjeta, Titulo } from './componentes/ui.tsx';
 import { Inicio } from './paginas/Inicio.tsx';
 import { Login } from './paginas/Login.tsx';
+import { Alertas } from './inventario/Alertas.tsx';
+import { Conteo } from './inventario/Conteo.tsx';
+import { Entradas } from './inventario/Entradas.tsx';
+import { Existencias } from './inventario/Existencias.tsx';
 import { Bolsas } from './paginas/Bolsas.tsx';
 import { Catalogo } from './paginas/Catalogo.tsx';
 import { Corte } from './paginas/Corte.tsx';
+import { Inventario } from './paginas/Inventario.tsx';
 import { Pendiente } from './paginas/Pendiente.tsx';
 import { Vender } from './paginas/Vender.tsx';
 import { Ventas } from './paginas/Ventas.tsx';
@@ -62,14 +67,15 @@ export function App() {
           path="/inventario"
           element={
             <RutaPrivada soloAdmin>
-              <Pendiente
-                titulo="Inventario"
-                fase={5}
-                detalle="Existencias de uniformes y bolsas juntas, ingresar existencias, conteo físico, kardex y alertas de reposición."
-              />
+              <Inventario />
             </RutaPrivada>
           }
-        />
+        >
+          <Route index element={<Existencias />} />
+          <Route path="entradas" element={<Entradas />} />
+          <Route path="conteo" element={<Conteo />} />
+          <Route path="alertas" element={<Alertas />} />
+        </Route>
         <Route
           path="/reportes"
           element={

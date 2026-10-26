@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { env } from '../../config/env.js';
+import { diaLocal } from '../../shared/fechas.js';
 import type { UsuarioSesion } from '../../shared/middleware/auth.js';
 import { prisma } from '../../shared/prisma.js';
 import type {
@@ -24,7 +25,7 @@ const ZONA = env.TZ; // America/Guatemala
  * depende de una variable de entorno bien puesta.
  */
 function diaDelCorte(fecha?: string): string {
-  return fecha ?? new Date().toLocaleDateString('en-CA', { timeZone: ZONA });
+  return fecha ?? diaLocal();
 }
 
 function rango(desde?: Date, hasta?: Date) {

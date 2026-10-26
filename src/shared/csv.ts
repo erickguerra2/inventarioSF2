@@ -1,4 +1,4 @@
-import { env } from '../config/env.js';
+import { diaLocal } from './fechas.js';
 
 export type Columna<T> = {
   titulo: string;
@@ -33,10 +33,8 @@ export function aCsv<T>(filas: T[], columnas: Array<Columna<T>>): string {
 /**
  * Cuando el reporte ya trae su propia etiqueta (el dia del corte, el
  * agrupamiento), esa es la que nombra el archivo. Solo cuando no hay ninguna se
- * usa la fecha de hoy, y en hora de Guatemala: con `toISOString` el archivo
- * exportado a las once de la noche quedaba nombrado con el dia siguiente.
+ * usa la fecha de hoy, en hora de Guatemala (ver shared/fechas.ts).
  */
 export function nombreDeArchivo(base: string, sufijo?: string): string {
-  const etiqueta = sufijo ?? new Date().toLocaleDateString('en-CA', { timeZone: env.TZ });
-  return `${base}-${etiqueta}.csv`;
+  return `${base}-${sufijo ?? diaLocal()}.csv`;
 }
