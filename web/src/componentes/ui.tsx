@@ -75,6 +75,31 @@ export function Campo({
   );
 }
 
+export function Modal({
+  titulo,
+  children,
+  alCerrar,
+}: {
+  titulo: string;
+  children: ReactNode;
+  alCerrar: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={alCerrar}
+    >
+      <div
+        className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg"
+        onClick={(evento) => evento.stopPropagation()}
+      >
+        <h2 className="mb-4 text-lg font-semibold text-azul">{titulo}</h2>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function Cargando({ texto = 'Cargando...' }: { texto?: string }) {
   return (
     <div className="flex items-center gap-3 p-6 text-sm text-slate-600">

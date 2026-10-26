@@ -3,8 +3,10 @@ import { Layout } from './componentes/Layout.tsx';
 import { Tarjeta, Titulo } from './componentes/ui.tsx';
 import { Inicio } from './paginas/Inicio.tsx';
 import { Login } from './paginas/Login.tsx';
+import { Corte } from './paginas/Corte.tsx';
 import { Pendiente } from './paginas/Pendiente.tsx';
 import { Vender } from './paginas/Vender.tsx';
+import { Ventas } from './paginas/Ventas.tsx';
 import { RutaPrivada } from './sesion/RutaPrivada.tsx';
 
 function NoEncontrada() {
@@ -35,26 +37,8 @@ export function App() {
         <Route path="/" element={<Inicio />} />
 
         <Route path="/vender" element={<Vender />} />
-        <Route
-          path="/ventas"
-          element={
-            <Pendiente
-              titulo="Ventas"
-              fase={3}
-              detalle="Listado con filtros por fecha y estado. Una maestra solo ve las suyas; la administradora ve todas y puede anular."
-            />
-          }
-        />
-        <Route
-          path="/corte"
-          element={
-            <Pendiente
-              titulo="Corte de caja"
-              fase={3}
-              detalle="Lo cobrado del día separado por método de pago, y cuánto efectivo hay que entregar. Con exportación a CSV."
-            />
-          }
-        />
+        <Route path="/ventas" element={<Ventas />} />
+        <Route path="/corte" element={<Corte />} />
 
         <Route
           path="/catalogo"

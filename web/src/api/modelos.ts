@@ -21,6 +21,62 @@ export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO' | 'TARJETA';
 
 export type TipoItem = 'UNIFORME_TALLA' | 'BOLSA_UTILES';
 
+export type EstadoVenta = 'PAGADA' | 'ANULADA';
+
+export type Venta = {
+  id: string;
+  correlativo: number;
+  estado: EstadoVenta;
+  creadoEn: string;
+  metodoPago: MetodoPago;
+  referenciaPago: string | null;
+  subtotalCentavos: number;
+  descuentoCentavos: number;
+  totalCentavos: number;
+  comprador: { tipo: 'ALUMNO' | 'NOMBRE'; id: string | null; nombre: string } | null;
+  /** Quien vendio. No es editable: es la base del corte de caja. */
+  vendidoPor: { id: string; usuario: string; nombre: string };
+  anulacion: { en: string; motivo: string; por: string | null } | null;
+  lineas: Array<{
+    id: string;
+    itemId: string;
+    descripcion: string;
+    cantidad: number;
+    precioUnitCentavos: number;
+    totalCentavos: number;
+  }>;
+};
+
+/** Lo que devuelve GET /ventas: filas en `data`, metadatos como hermanos. */
+export type ListadoVentas = {
+  data: Venta[];
+  meta: { page: number; perPage: number; total: number; totalPages: number };
+  resumen: { totalCobradoCentavos: number; incluyeSoloSusVentas: boolean };
+};
+
+export type CorteDeCaja = {
+  fecha: string;
+  zona: string;
+  alcance: 'TODAS' | 'SOLO_MIS_VENTAS';
+  totales: {
+    ventas: number;
+    cobradoCentavos: number;
+    efectivoCentavos: number;
+    anuladas: number;
+    anuladoCentavos: number;
+  };
+  porMetodo: Partial<Record<MetodoPago, number>>;
+  porMaestra: Array<{
+    usuarioId: string;
+    usuario: string;
+    nombre: string;
+    ventas: number;
+    cobradoCentavos: number;
+    porMetodo: Partial<Record<MetodoPago, number>>;
+    aEntregarEnEfectivoCentavos: number;
+  }>;
+};
+
 /** Una talla de uniforme. `itemId` es con lo que se vende. */
 export type Variante = {
   id: string;

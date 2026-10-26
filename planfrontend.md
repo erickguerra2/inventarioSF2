@@ -1,9 +1,10 @@
 # Plan de frontend — Inventario CCSF2 (React + Vite)
 
 > Para quien trabaje en la interfaz. El backend está terminado y probado (93 pruebas), y las
-> **fases 1 y 2 del frontend ya están hechas** (ver §6): el proyecto vive en `web/`, con el
-> cliente de API, la sesión, el layout por rol y la pantalla de venta con su recibo
-> funcionando contra el backend real.
+> **fases 1, 2 y 3 del frontend ya están hechas** (ver §6): el proyecto vive en `web/`, con el
+> cliente de API, la sesión, el layout por rol, la pantalla de venta con su recibo, el listado
+> de ventas con anulación y el corte de caja, todo funcionando contra el backend real.
+> Lo que sigue es el catálogo (fase 4).
 >
 > Documentos hermanos:
 > - [README.md](README.md) — cómo levantar el backend y la lista de endpoints.
@@ -386,7 +387,7 @@ Cada fase deja algo que se puede usar y mostrar.
 |---|---|---|
 | **1 — LISTA** | Proyecto, cliente de API, login, `/auth/me`, rutas protegidas, layout con el rol | Sin esto no se puede probar nada más. |
 | **2 — LISTA** | **Punto de venta + recibo** | Es el corazón y lo que más se usa. Terminarlo temprano deja ver el sistema funcionando de verdad. |
-| **3** | Mis ventas, recibo reimprimible, corte de caja | Completa todo lo que necesita una maestra. Con esto ya se puede soltar a producción para vender. |
+| **3 — LISTA** | Mis ventas, recibo reimprimible, corte de caja | Completa todo lo que necesita una maestra. Con esto ya se puede soltar a producción para vender. |
 | **4** | Catálogo: uniformes y bolsas | Le quita a la administradora el Prisma Studio de encima. |
 | **5** | Inventario: existencias, entradas, conteo, kardex, alertas | Lo que más usa la administradora cada semana. |
 | **6** | Reportes, exportación, usuarios | Lo último porque hasta aquí no hay suficientes datos para que los reportes digan algo. |
@@ -409,14 +410,22 @@ web/
     sesion/RutaPrivada.tsx  redirige a /login, y bloquea las de solo ADMIN
     venta/vendibles.ts      uniformes + bolsas aplanados, y la búsqueda
     venta/carrito.ts        el carrito y la conversión a centavos
+    utilidades/fechas.ts    YYYY-MM-DD local; la zona la resuelve el backend
     componentes/Layout.tsx  cabecera, navegación filtrada por rol, cerrar sesión
     componentes/Recibo.tsx  recibo imprimible (window.print)
     componentes/ui.tsx      Tarjeta, Titulo, Aviso, Boton, Campo, Quetzales...
     paginas/Login.tsx       formulario y manejo de los errores del login
     paginas/Inicio.tsx      tablero distinto por rol, con datos reales
     paginas/Vender.tsx      el punto de venta
+    paginas/Ventas.tsx      listado con filtros, recibo y anulación (ADMIN)
+    paginas/Corte.tsx       corte de caja del día, con exportación a CSV
     paginas/Pendiente.tsx   marcador de las pantallas que faltan
 ```
+
+La **anulación** (§5.11) quedó dentro del listado de ventas y no en una fase aparte: una
+administradora con una lista de ventas y sin forma de corregir un cobro mal hecho no tiene
+una pantalla terminada. Pide motivo, avisa cuánto se devuelve al inventario, y es lo único
+de esa pantalla que una maestra no ve.
 
 La paleta sale del logo y del sitio anterior, sin inventar colores: verde institucional
 `#245501` (documentado en `uniformes-ccsf2.md`) para la cabecera y los botones, verde salvia
