@@ -32,20 +32,21 @@ body {
 }
 
 /*
- * Impresion del recibo: se oculta todo y se deja visible solo el recibo.
- * Se usa `visibility` y no `display` para que el recibo conserve su maquetacion.
+ * Impresion: se oculta todo y se deja visible solo lo marcado con .para-imprimir
+ * (el recibo de una venta, la lista de utiles de una bolsa).
+ * Se usa `visibility` y no `display` para que el contenido conserve su maquetacion.
  */
 @media print {
   body * {
     visibility: hidden;
   }
 
-  #recibo-impresion,
-  #recibo-impresion * {
+  .para-imprimir,
+  .para-imprimir * {
     visibility: visible;
   }
 
-  #recibo-impresion {
+  .para-imprimir {
     position: absolute;
     left: 0;
     top: 0;

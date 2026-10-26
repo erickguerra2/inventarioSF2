@@ -3,6 +3,8 @@ import { Layout } from './componentes/Layout.tsx';
 import { Tarjeta, Titulo } from './componentes/ui.tsx';
 import { Inicio } from './paginas/Inicio.tsx';
 import { Login } from './paginas/Login.tsx';
+import { Bolsas } from './paginas/Bolsas.tsx';
+import { Catalogo } from './paginas/Catalogo.tsx';
 import { Corte } from './paginas/Corte.tsx';
 import { Pendiente } from './paginas/Pendiente.tsx';
 import { Vender } from './paginas/Vender.tsx';
@@ -44,11 +46,7 @@ export function App() {
           path="/catalogo"
           element={
             <RutaPrivada soloAdmin>
-              <Pendiente
-                titulo="Uniformes"
-                fase={4}
-                detalle="Prendas con sus tallas: precio, costo y mínimo de cada una. Las existencias no se editan aquí: se mueven desde Inventario."
-              />
+              <Catalogo />
             </RutaPrivada>
           }
         />
@@ -56,11 +54,7 @@ export function App() {
           path="/bolsas"
           element={
             <RutaPrivada soloAdmin>
-              <Pendiente
-                titulo="Bolsas de útiles"
-                fase={4}
-                detalle="Una bolsa por grado y ciclo, con su lista de útiles (opcional) y el botón para duplicarla al ciclo siguiente."
-              />
+              <Bolsas />
             </RutaPrivada>
           }
         />

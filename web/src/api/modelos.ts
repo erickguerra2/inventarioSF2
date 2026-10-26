@@ -10,6 +10,33 @@
 
 export type Rol = 'ADMIN' | 'VENDEDOR';
 
+export type CategoriaUniforme = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  orden: number;
+};
+
+export type Grado = {
+  id: string;
+  nombre: string;
+  orden: number;
+  nivelId: string;
+};
+
+export type Nivel = {
+  id: string;
+  nombre: string;
+  orden: number;
+  grados: Grado[];
+};
+
+export type Ciclo = {
+  id: string;
+  anio: number;
+  activo: boolean;
+};
+
 export type UsuarioSesion = {
   id: string;
   usuario: string;

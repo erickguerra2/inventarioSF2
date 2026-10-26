@@ -43,7 +43,7 @@ export function Recibo({ ventaId, alCerrar }: { ventaId: string; alCerrar: () =>
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
       <div className="my-8 w-full max-w-md">
-        <div id="recibo-impresion" className="rounded-lg bg-white p-6 shadow-lg">
+        <div className="para-imprimir rounded-lg bg-white p-6 shadow-lg">
           {recibo.isPending ? (
             <Cargando texto="Preparando el recibo..." />
           ) : recibo.isError ? (
