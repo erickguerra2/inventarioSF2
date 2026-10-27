@@ -13,8 +13,9 @@ import {
   Tarjeta,
   Titulo,
 } from '../componentes/ui.tsx';
+import { FiltroFechas } from '../componentes/FiltroFechas.tsx';
 import { esAdmin, useSesion } from '../sesion/sesion.ts';
-import { fechaHoraCorta, haceDiasISO, hoyISO, primerDiaDelMesISO } from '../utilidades/fechas.ts';
+import { fechaHoraCorta, hoyISO } from '../utilidades/fechas.ts';
 
 type Filtros = { desde: string; hasta: string; estado: '' | EstadoVenta };
 
@@ -82,27 +83,10 @@ export function Ventas() {
 
       <Tarjeta className="mb-5">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-600">Desde</span>
-            <input
-              type="date"
-              value={filtros.desde}
-              max={filtros.hasta}
-              onChange={(evento) => cambiarFiltros({ desde: evento.target.value })}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-600">Hasta</span>
-            <input
-              type="date"
-              value={filtros.hasta}
-              min={filtros.desde}
-              onChange={(evento) => cambiarFiltros({ hasta: evento.target.value })}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
+          <FiltroFechas
+            rango={{ desde: filtros.desde, hasta: filtros.hasta }}
+            alCambiar={(rango) => cambiarFiltros(rango)}
+          />
 
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-slate-600">Estado</span>
@@ -118,27 +102,6 @@ export function Ventas() {
               <option value="ANULADA">Anuladas</option>
             </select>
           </label>
-
-          <div className="flex gap-2">
-            <Boton
-              variante="secundario"
-              onClick={() => cambiarFiltros({ desde: hoyISO(), hasta: hoyISO() })}
-            >
-              Hoy
-            </Boton>
-            <Boton
-              variante="secundario"
-              onClick={() => cambiarFiltros({ desde: haceDiasISO(7), hasta: hoyISO() })}
-            >
-              7 días
-            </Boton>
-            <Boton
-              variante="secundario"
-              onClick={() => cambiarFiltros({ desde: primerDiaDelMesISO(), hasta: hoyISO() })}
-            >
-              Este mes
-            </Boton>
-          </div>
         </div>
       </Tarjeta>
 

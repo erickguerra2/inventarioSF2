@@ -11,9 +11,14 @@ import { Bolsas } from './paginas/Bolsas.tsx';
 import { Catalogo } from './paginas/Catalogo.tsx';
 import { Corte } from './paginas/Corte.tsx';
 import { Inventario } from './paginas/Inventario.tsx';
-import { Pendiente } from './paginas/Pendiente.tsx';
+import { Reportes } from './paginas/Reportes.tsx';
+import { Usuarios } from './paginas/Usuarios.tsx';
 import { Vender } from './paginas/Vender.tsx';
 import { Ventas } from './paginas/Ventas.tsx';
+import { BolsasPorGrado } from './reportes/BolsasPorGrado.tsx';
+import { ExistenciasValorizadas } from './reportes/ExistenciasValorizadas.tsx';
+import { TallasMasVendidas } from './reportes/TallasMasVendidas.tsx';
+import { VentasAgrupadas } from './reportes/VentasAgrupadas.tsx';
 import { RutaPrivada } from './sesion/RutaPrivada.tsx';
 
 function NoEncontrada() {
@@ -80,23 +85,21 @@ export function App() {
           path="/reportes"
           element={
             <RutaPrivada soloAdmin>
-              <Pendiente
-                titulo="Reportes"
-                fase={6}
-                detalle="Ventas por día, maestra, tipo o grado; tallas más vendidas; existencias valorizadas; bolsas por grado. Todos exportan a CSV."
-              />
+              <Reportes />
             </RutaPrivada>
           }
-        />
+        >
+          <Route index element={<VentasAgrupadas />} />
+          <Route path="tallas" element={<TallasMasVendidas />} />
+          <Route path="existencias" element={<ExistenciasValorizadas />} />
+          <Route path="bolsas" element={<BolsasPorGrado />} />
+        </Route>
+
         <Route
           path="/usuarios"
           element={
             <RutaPrivada soloAdmin>
-              <Pendiente
-                titulo="Usuarios"
-                fase={6}
-                detalle="Alta de maestras, baja (nunca borrado) y reseteo de contraseñas."
-              />
+              <Usuarios />
             </RutaPrivada>
           }
         />

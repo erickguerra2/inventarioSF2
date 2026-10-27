@@ -13,6 +13,18 @@ const METODOS: Array<{ valor: MetodoPago; texto: string }> = [
   { valor: 'TARJETA', texto: 'Tarjeta' },
 ];
 
+/**
+ * Solo se muestran las columnas de los metodos que tuvieron movimiento ese dia,
+ * mas el efectivo, que siempre importa porque es lo que hay que entregar en mano.
+ * En el colegio se cobra casi todo en efectivo o transferencia: dejar cuatro
+ * columnas fijas llenaba la tabla de guiones.
+ */
+function metodosConMovimiento(corte: CorteDeCaja): typeof METODOS {
+  return METODOS.filter(
+    (metodo) => metodo.valor === 'EFECTIVO' || (corte.porMetodo[metodo.valor] ?? 0) > 0,
+  );
+}
+
 export function Corte() {
   const [fecha, setFecha] = useState(hoyISO());
 
@@ -22,6 +34,7 @@ export function Corte() {
   });
 
   const soloSuyo = corte.data?.alcance === 'SOLO_MIS_VENTAS';
+  const columnas = corte.data ? metodosConMovimiento(corte.data) : METODOS;
 
   return (
     <div>
@@ -82,7 +95,7 @@ export function Corte() {
                 <Quetzales centavos={corte.data.totales.efectivoCentavos} />
               </p>
               <p className="mt-1 text-sm text-slate-600">
-                Lo demás ya está en el banco o en el datáfono.
+                Lo que entró por transferencia ya está en el banco.
               </p>
             </Tarjeta>
 
@@ -113,7 +126,7 @@ export function Corte() {
                     <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
                       <th className="py-2 pr-3">Quién</th>
                       <th className="py-2 pr-3 text-right">Ventas</th>
-                      {METODOS.map((metodo) => (
+                      {columnas.map((metodo) => (
                         <th key={metodo.valor} className="py-2 pr-3 text-right">
                           {metodo.texto}
                         </th>
@@ -130,7 +143,7 @@ export function Corte() {
                           <span className="block text-xs text-slate-500">{fila.usuario}</span>
                         </td>
                         <td className="py-3 pr-3 text-right tabular-nums">{fila.ventas}</td>
-                        {METODOS.map((metodo) => (
+                        {columnas.map((metodo) => (
                           <td key={metodo.valor} className="py-3 pr-3 text-right text-slate-600">
                             {fila.porMetodo[metodo.valor] ? (
                               <Quetzales centavos={fila.porMetodo[metodo.valor] ?? 0} />

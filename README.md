@@ -5,6 +5,8 @@ Backend del inventario de **uniformes** y **bolsas de útiles** del colegio.
 - El diseño completo, las reglas de negocio y el contrato de API están en
   [docs/plan-backend.md](docs/plan-backend.md). Si algo de este README y el plan se
   contradicen, el plan manda.
+- El análisis del servidor del colegio y qué cambia al desplegar está en
+  [docs/despliegue.md](docs/despliegue.md).
 - Los datos de uniformes del sitio anterior están en
   [uniformes-ccsf2.md](uniformes-ccsf2.md).
 

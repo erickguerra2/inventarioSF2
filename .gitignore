@@ -1,5 +1,11 @@
 node_modules/
 dist/
+
+# Material de referencia pesado: las fotos originales sin optimizar (21 MB) y el
+# proyecto estatico anterior. Se conservan fuera del repositorio; lo que se sube
+# son las fotos ya optimizadas. Ver docs/despliegue.md.
+*.rar
+Proyecto de practicas.zip
 .env
 .env.local
 *.log

@@ -10,9 +10,18 @@ import { buscar, useVendibles } from '../venta/vendibles.ts';
 
 type VentaCreada = { id: string; correlativo: number; totalCentavos: number };
 
-const METODOS: Array<{ valor: MetodoPago; texto: string }> = [
+/**
+ * En el colegio se cobra en efectivo o por transferencia. El deposito y la
+ * tarjeta siguen existiendo en el backend —por si alguna vez se usan— pero no
+ * tienen por que estorbar en cada venta: los dos comunes son botones de un clic
+ * y los otros quedan detras de un enlace.
+ */
+const METODOS_COMUNES: Array<{ valor: MetodoPago; texto: string }> = [
   { valor: 'EFECTIVO', texto: 'Efectivo' },
   { valor: 'TRANSFERENCIA', texto: 'Transferencia' },
+];
+
+const METODOS_OTROS: Array<{ valor: MetodoPago; texto: string }> = [
   { valor: 'DEPOSITO', texto: 'Depósito' },
   { valor: 'TARJETA', texto: 'Tarjeta' },
 ];
@@ -24,6 +33,7 @@ export function Vender() {
 
   const [consulta, setConsulta] = useState('');
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('EFECTIVO');
+  const [mostrarOtrosMetodos, setMostrarOtrosMetodos] = useState(false);
   const [compradorNombre, setCompradorNombre] = useState('');
   const [referenciaPago, setReferenciaPago] = useState('');
   const [descuento, setDescuento] = useState('');
@@ -232,20 +242,56 @@ export function Vender() {
             )}
 
             <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
-              <label className="block">
+              <div>
                 <span className="mb-1 block text-sm font-medium text-slate-700">Pago</span>
-                <select
-                  value={metodoPago}
-                  onChange={(evento) => setMetodoPago(evento.target.value as MetodoPago)}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                >
-                  {METODOS.map((metodo) => (
-                    <option key={metodo.valor} value={metodo.valor}>
+
+                <div className="flex gap-2">
+                  {METODOS_COMUNES.map((metodo) => (
+                    <button
+                      key={metodo.valor}
+                      type="button"
+                      onClick={() => setMetodoPago(metodo.valor)}
+                      aria-pressed={metodoPago === metodo.valor}
+                      className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition ${
+                        metodoPago === metodo.valor
+                          ? 'border-marca bg-marca text-white'
+                          : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
                       {metodo.texto}
-                    </option>
+                    </button>
                   ))}
-                </select>
-              </label>
+                </div>
+
+                {mostrarOtrosMetodos ? (
+                  <select
+                    value={
+                      METODOS_OTROS.some((metodo) => metodo.valor === metodoPago)
+                        ? metodoPago
+                        : ''
+                    }
+                    onChange={(evento) => setMetodoPago(evento.target.value as MetodoPago)}
+                    className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="" disabled>
+                      Otro método...
+                    </option>
+                    {METODOS_OTROS.map((metodo) => (
+                      <option key={metodo.valor} value={metodo.valor}>
+                        {metodo.texto}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setMostrarOtrosMetodos(true)}
+                    className="mt-2 text-xs text-slate-500 underline hover:text-slate-700"
+                  >
+                    Otro método de pago
+                  </button>
+                )}
+              </div>
 
               {metodoPago !== 'EFECTIVO' ? (
                 <label className="block">

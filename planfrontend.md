@@ -1,11 +1,14 @@
 # Plan de frontend — Inventario CCSF2 (React + Vite)
 
-> Para quien trabaje en la interfaz. El backend está terminado y probado (93 pruebas), y las
-> **fases 1 a 5 del frontend ya están hechas** (ver §6): el proyecto vive en `web/` y cubre
+> Para quien trabaje en la interfaz. El backend está terminado y probado (93 pruebas), y el
+> **frontend está completo: las seis fases** (ver §6). El proyecto vive en `web/` y cubre
 > sesión, venta, recibo, listado de ventas con anulación, corte de caja, catálogo de uniformes
-> y bolsas, e inventario completo (existencias, entradas, conteo físico, kardex y alertas),
-> todo funcionando contra el backend real. Lo que falta son los reportes y los usuarios
-> (fase 6).
+> y bolsas, inventario completo (existencias, entradas, conteo físico, kardex y alertas),
+> reportes con exportación y administración de usuarios. Ya no queda ninguna pantalla
+> marcada como pendiente.
+>
+> Lo que falta para que esto se use de verdad no es código, es el **despliegue**:
+> ver [docs/despliegue.md](docs/despliegue.md).
 >
 > Documentos hermanos:
 > - [README.md](README.md) — cómo levantar el backend y la lista de endpoints.
@@ -391,7 +394,7 @@ Cada fase deja algo que se puede usar y mostrar.
 | **3 — LISTA** | Mis ventas, recibo reimprimible, corte de caja | Completa todo lo que necesita una maestra. Con esto ya se puede soltar a producción para vender. |
 | **4 — LISTA** | Catálogo: uniformes y bolsas | Le quita a la administradora el Prisma Studio de encima. |
 | **5 — LISTA** | Inventario: existencias, entradas, conteo, kardex, alertas | Lo que más usa la administradora cada semana. |
-| **6** | Reportes, exportación, usuarios | Lo último porque hasta aquí no hay suficientes datos para que los reportes digan algo. |
+| **6 — LISTA** | Reportes, exportación, usuarios | Lo último porque hasta aquí no hay suficientes datos para que los reportes digan algo. |
 
 Si hay que recortar, recortá la fase 6, no la 2.
 
@@ -415,7 +418,10 @@ web/
     inventario/*.tsx        existencias, entradas, conteo, alertas, kardex, movimiento
     utilidades/texto.ts     búsqueda por principio de palabra (compartida)
     utilidades/fechas.ts    YYYY-MM-DD local; la zona la resuelve el backend
+    reportes/*.tsx          los cuatro reportes, cada uno con su exportación
     componentes/edicion.tsx edición en línea de montos y enteros, dentro de la tabla
+    componentes/FiltroFechas.tsx  desde/hasta con atajos, compartido
+    componentes/BotonExportar.tsx descarga del CSV por enlace, con la cookie
     componentes/Layout.tsx  cabecera, navegación filtrada por rol, cerrar sesión
     componentes/Recibo.tsx  recibo imprimible (window.print)
     componentes/ui.tsx      Tarjeta, Titulo, Aviso, Boton, Campo, Quetzales...
@@ -427,7 +433,8 @@ web/
     paginas/Catalogo.tsx    prendas y tallas, con precios editables en línea
     paginas/Bolsas.tsx      bolsas por ciclo, editor de la lista, duplicar, imprimir
     paginas/Inventario.tsx  pestañas de inventario (rutas anidadas)
-    paginas/Pendiente.tsx   marcador de las pantallas que faltan
+    paginas/Reportes.tsx    pestañas de reportes (rutas anidadas)
+    paginas/Usuarios.tsx    alta, baja y reseteo de contraseñas
 ```
 
 La **anulación** (§5.11) quedó dentro del listado de ventas y no en una fase aparte: una
@@ -452,6 +459,15 @@ Y dos del inventario:
 - **El conteo muestra las tres columnas antes de guardar** (sistema, contado, diferencia en
   rojo). El valor de contar está en *ver* la diferencia; si la pantalla solo pidiera el
   número nuevo, el faltante pasaría sin que nadie lo note.
+
+Y una del cobro, que salió de cómo se cobra en el colegio de verdad:
+
+- **Efectivo y transferencia son dos botones; depósito y tarjeta están detrás de un enlace.**
+  En la práctica solo se cobra de las dos primeras formas, así que un desplegable con cuatro
+  opciones era una decisión de más en cada venta. Las otras dos siguen existiendo en el
+  backend por si alguna vez se usan, pero no estorban. Por lo mismo, el corte de caja
+  **solo muestra las columnas de los métodos que tuvieron movimiento** ese día, más el
+  efectivo, que siempre importa porque es lo que hay que entregar en mano.
 
 La paleta sale del logo y del sitio anterior, sin inventar colores: verde institucional
 `#245501` (documentado en `uniformes-ccsf2.md`) para la cabecera y los botones, verde salvia
@@ -520,11 +536,17 @@ Para que no pierdas tiempo en cosas que el backend no soporta todavía:
 
 ## 10. Preguntas abiertas que te afectan
 
-1. **¿Las maestras venden desde una compu compartida o cada una desde la suya?** Si es
+1. **Para las facturas del portal de la SAT, ¿hace falta el NIT del comprador?** La
+   directora usa los recibos del día para emitir las facturas. Hoy la venta guarda el nombre
+   de quien compra, pero **no el NIT**. Si las facturas no son todas a consumidor final, ese
+   dato hay que pedirlo *en el momento de la venta*: después no hay a quién preguntarle.
+   Agregarlo es un campo de texto en la venta y una línea en el recibo — poco trabajo, pero
+   hay que decidirlo antes de empezar a vender, no después.
+2. **¿Las maestras venden desde una compu compartida o cada una desde la suya?** Si es
    compartida, el botón de "cerrar sesión" tiene que ser enorme y visible, y conviene pensar
    en un cierre por inactividad en el cliente.
-2. **¿Imprimen recibo siempre?** Si sí, vale la pena ajustar el `@media print` a papel media
+3. **¿Imprimen recibo siempre?** Si sí, vale la pena ajustar el `@media print` a papel media
    carta o a una impresora de tickets desde el principio.
-3. **¿La administradora va a querer editar precios en masa?** Hoy es una talla por petición;
+4. **¿La administradora va a querer editar precios en masa?** Hoy es una talla por petición;
    si el flujo real es "subir todos los precios 5%", decíselo al del backend y es un endpoint
    nuevo, no una pantalla con 31 peticiones.

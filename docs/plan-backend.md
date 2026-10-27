@@ -1304,10 +1304,12 @@ Seis respuestas que cambian el alcance. La primera conviene resolverla **antes d
 una línea**, porque es la única que puede invalidar el stack; las dos siguientes, antes de
 construir las ventas (Fase 4).
 
-1. **¿Qué es exactamente ese servidor?** Es la pregunta que bloquea la Fase 0. El sitio
-   anterior vive en `inventario.ccsf2.edu.gt`, y si eso es **hosting compartido tipo cPanel**
-   puede que no corra Node ni PostgreSQL, y que solo haya PHP y MySQL. Hay tres caminos y
-   conviene saber cuál antes de empezar:
+1. **¿Qué es exactamente ese servidor?** — **RESPONDIDA**: es Hostinger **Business Web
+   Hosting**, hosting compartido. El análisis completo, con lo que hay que confirmar todavía
+   y las opciones, está en [despliegue.md](despliegue.md). Lo que ya quedó claro: **Docker no
+   es una opción ahí**, y el proyecto anterior del alumno era un sitio estático, así que no
+   prueba que el servidor corra Node. Lo de abajo se conserva porque describe los tres
+   caminos posibles:
    - **VPS o servidor propio** (root, cualquier cosa): el plan aplica tal cual.
    - **Hosting compartido con Node** (Passenger / "Setup Node.js App") y MySQL en vez de
      Postgres: el plan aplica, con dos cambios — Prisma sobre MySQL y el `FOR UPDATE` de §3
