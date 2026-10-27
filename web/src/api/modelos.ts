@@ -126,7 +126,15 @@ export type Prenda = {
   tipoTalla: 'LETRA' | 'NUMERO';
   activo: boolean;
   categoria: { id: string; codigo: string; nombre: string };
-  fotos: Array<{ id: string; url: string; alt: string | null; esPrincipal: boolean }>;
+  fotos: Array<{
+    id: string;
+    /** Ancho 800, para ver la prenda. */
+    url: string;
+    /** Ancho 200, para listas y resultados de búsqueda. */
+    urlMini: string;
+    alt: string | null;
+    esPrincipal: boolean;
+  }>;
   variantes: Variante[];
 };
 

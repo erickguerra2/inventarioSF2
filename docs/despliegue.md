@@ -50,22 +50,44 @@ hosting lo hace. No dice nada sobre si puede correr Node ni si tiene PostgreSQL.
 > este problema —las contraseñas se guardan con argon2id y nunca salen del servidor—, pero
 > eso no arregla las que ya se publicaron.
 
-## 3. Lo que hay que confirmar en el panel (10 minutos)
+## 3. Respuesta del proveedor — CONFIRMADO
 
-Tres preguntas, y las tres se responden entrando a hPanel:
+Hostinger contestó las tres preguntas:
 
-1. **¿Hay Node.js?** Buscar en el panel una sección "Node.js" (a veces bajo *Avanzado*, o
-   "Setup Node.js App" si es cPanel). Si no aparece, el plan no corre Node.
-2. **¿Qué bases de datos ofrece?** Entrar a *Bases de datos*. Casi con seguridad dice
-   **MySQL**. Si no aparece PostgreSQL por ningún lado, no lo hay.
-3. **¿Hay acceso SSH?** *Avanzado → Acceso SSH*. El plan Business suele incluirlo.
+> **No**, el plan actual solo es Business Web (hosting compartido), no cuenta con **Node.js
+> preinstalado**, tampoco tiene permisos para **ejecutar procesos en segundo plano**.
+>
+> Es optimizado para entornos **PHP**, como base de datos tiene **MySQL y MariaDB** que se
+> administra a través de phpMyAdmin.
+>
+> **SSH está disponible** y activado por medio del puerto personalizado. Para transferir
+> archivos, **SFTP/FTP** o el administrador de archivos del hPanel.
 
-**Lo que ya se puede dar por descartado sin preguntar: Docker.** Ningún hosting compartido
-da Docker, porque eso exige permisos de root sobre la máquina, y la máquina es compartida
-con otros clientes. Así que **"copiar el repo y levantar docker" no es una opción aquí**.
-El `docker-compose.yml` del proyecto seguirá siendo solo para desarrollo en tu computadora.
+Tres consecuencias, en orden de importancia:
 
-## 4. Las opciones, de menos a más trabajo
+1. **"No permisos para ejecutar procesos en segundo plano" es lo que decide todo.** Un
+   backend no es un archivo que se abre cuando alguien entra: es un programa que tiene que
+   estar **encendido todo el tiempo**, escuchando. Sin permiso para eso, da igual que haya
+   Node o no: no hay dónde correrlo.
+2. **No hay Node ni PostgreSQL.** Hay PHP y MySQL/MariaDB.
+3. **El SSH no cambia nada.** Sirve para copiar archivos y correr comandos cortos, no para
+   dejar un servidor levantado. Es útil, pero no resuelve el punto 1.
+
+**Y Docker queda descartado por partida doble**: ningún hosting compartido lo permite —exige
+permisos de root sobre una máquina que es de varios clientes— y además caería en la misma
+prohibición de procesos en segundo plano. El `docker-compose.yml` del proyecto se queda como
+lo que siempre fue: una herramienta para desarrollar en tu computadora.
+
+## 4. Las opciones que quedan
+
+Con la respuesta del proveedor, **dos de las cuatro opciones que había murieron**:
+
+| | |
+|---|---|
+| ~~B. Node en el hosting + Postgres afuera~~ | No hay Node ni procesos en segundo plano |
+| ~~C. Node en el hosting + MySQL~~ | Lo mismo: el problema no era la base, era correr el proceso |
+
+Quedan estas:
 
 ### A. VPS de Hostinger — *la recomendada*
 
@@ -80,47 +102,130 @@ dominio. Con eso:
 
 Es la opción con menos trabajo total y menos riesgo. Lo que cuesta es el alquiler mensual.
 
-### B. Node en el hosting actual + PostgreSQL gestionado afuera
+### B. Lo de siempre para el frontend + el backend en un plan gratuito
 
-Solo si la respuesta 1 es "sí hay Node".
+Esta sí sigue en pie, y cuesta **Q 0**. **Es la elegida.**
 
-- El backend corre en el hosting compartido; la base de datos vive en un **PostgreSQL
-  gestionado gratuito** (Neon o Supabase tienen plan gratis que le sobra a un colegio:
-  hablamos de miles de filas, no millones).
-- **También cero reescritura de SQL**: solo cambia `DATABASE_URL`.
-- Contra: una dependencia más, y cada consulta cruza internet en lugar de ir a `localhost`.
-  Para esta carga —unas pocas personas vendiendo— es perfectamente usable.
+**Qué base de datos usar, y por qué no las otras.** Esto importa más que la elección del
+backend, porque acá viven los datos:
 
-### C. Node en el hosting actual + MySQL del mismo hosting
+| | |
+|---|---|
+| **Neon** ✔ | Plan gratuito **sin caducidad**, 1 GB por proyecto (al colegio le sobra: hablamos de megas, no de gigas). La computación se suspende a los 5 minutos de inactividad, pero despierta rápido. |
+| PostgreSQL de Render ✘ | Su base gratuita **caduca a los 30 días**. Descartada de entrada. |
+| Supabase ✘ | **Pausa los proyectos gratuitos tras 7 días de poca actividad** (se pueden restaurar hasta 90 días después). Justo el patrón del colegio: noviembre a enero fuerte y después nueve meses tranquilos. Estaría pausándose sola todo el año. |
 
-Solo si hay Node y se prefiere no depender de un tercero.
+- El **frontend compilado son 4 archivos y 430 KB**: eso sí se puede subir como zip al
+  hosting actual, igual que el proyecto del alumno. El hosting sirve archivos estáticos sin
+  problema.
+- El **backend y la base** se van a un plan gratuito (Render, Railway o Fly para el backend;
+  Neon o Supabase para PostgreSQL). Cero reescritura.
+**Sobre que "se duermen": dónde cae realmente la espera.** Los planes gratuitos apagan el
+servidor tras un rato sin uso, y despertarlo toma entre 30 y 60 segundos. Pero conviene mirar
+el orden de las cosas:
 
-- Hay que **portar las consultas** que son específicas de PostgreSQL. No es todo el backend,
-  pero tampoco es poco:
+1. La maestra abre la página → el frontend es estático y carga al instante.
+2. La página pregunta `GET /auth/me` → **ahí despierta el servidor.**
+3. Ella escribe usuario y contraseña, entra.
+4. Vende → el servidor ya está caliente.
 
-  | Qué | Dónde |
-  |---|---|
-  | `TIMESTAMPTZ` en 10 columnas | `prisma/schema.prisma` y su migración |
-  | `AT TIME ZONE` para agrupar por día | `reportes.service.ts` |
-  | `COUNT(*) FILTER (WHERE ...)` | `reportes.service.ts` (4 consultas) |
-  | `nextval('venta_correlativo_seq')` | `ventas.service.ts` → `AUTO_INCREMENT` o tabla contador |
-  | `::int`, `to_char`, `COALESCE(...)::int` | los `$queryRaw` de reportes e inventario |
-  | `SELECT ... FOR UPDATE` | funciona igual en InnoDB ✔ |
+Es decir: **la espera cae al abrir la aplicación, no al cobrar.** Y eso cambia mucho las
+cosas, porque un minuto mientras nadie espera es tolerable; un minuto con el papá enfrente,
+no.
 
-  Lo bueno: el bloqueo pesimista, las transacciones y los `CHECK` funcionan en MySQL 8. Lo
-  malo: es un día de trabajo y hay que volver a correr las 93 pruebas contra MySQL.
+**El problema que sí queda** es que vuelve a dormirse tras unos 15 minutos sin peticiones. En
+enero, vendiendo seguido, nunca se duerme. El resto del año, con una venta a las 8 y otra a
+las 11, la de las 11 **sí** agarraría el servidor dormido, y esa espera ya cae con alguien
+enfrente.
 
-### D. Reescribir en PHP
+**Y eso tiene solución gratis:** un *ping* programado a `/health` cada 10 minutos, desde un
+cron gratuito (cron-job.org, o un workflow de GitHub Actions). Pero **no conviene hacerlo
+24/7**, y la razón es importante.
 
-Si el hosting resulta ser solo PHP + MySQL y no se quiere pagar un VPS.
+### Por qué el ping NO debe correr todo el día
 
-- El **modelo de datos, las reglas de negocio y el contrato de API de este proyecto siguen
-  sirviendo completos**: están escritos aparte del lenguaje, a propósito.
-- Pero es reescribir el backend entero (Laravel). Semanas, no días. Y las 93 pruebas se
-  vuelven a escribir.
+Render da **750 horas de instancia gratis al mes por workspace**, y un servicio dormido no
+consume ninguna. El detalle que cambia todo: **el ping consume justamente las horas que
+protege**. Un servicio despierto las 24 horas gasta unas 730 al mes — o sea, casi toda la
+cuota. Y si se agota, **Render suspende todos los servicios gratuitos del workspace hasta el
+mes siguiente**.
 
-**Mi recomendación: A.** Si el colegio no puede pagar el VPS, **B** si hay Node, y **D**
-solo como último recurso.
+Es decir: tener el ping siempre encendido es la forma más fácil de que el sistema se caiga
+justo en enero, que es cuando no puede caerse.
+
+**La cuenta que sí cierra**, pensada para el colegio:
+
+| | |
+|---|---|
+| Ping cada 10 min, de 6:00 a 18:00 | ~12 h/día |
+| En un mes de 31 días | **~372 horas** |
+| Cuota de Render | 750 horas |
+| Margen | sobra la mitad |
+
+Fuera de ese horario el servidor duerme y no gasta nada. Si alguien entra a las 9 de la
+noche, espera el minuto de arranque — y a esa hora no hay nadie vendiendo.
+
+> **Ojo con la otra cuota.** Mantener el backend despierto también mantiene abierta su
+> conexión a la base, y **Neon da 100 CU-hours al mes**. Con el horario de arriba se queda
+> cerca del límite, así que conviene **revisar el consumo real el primer mes** en los paneles
+> de los dos servicios, y recortar el horario si hace falta. De las dos cuotas, la de Neon es
+> la más apretada.
+
+### Los respaldos son el verdadero riesgo, no el arranque
+
+Los planes gratuitos **no hacen respaldos automáticos**, y la recuperación a un punto en el
+tiempo de Neon en el plan gratuito es de pocas horas. El plan de backend (§13) pide respaldo
+diario probado, y acá no hay servidor donde programarlo.
+
+**Solución gratis:** un workflow de GitHub Actions, una vez al día, que corra `pg_dump`
+contra la base y guarde el resultado como artefacto o en un repositorio privado. Es media
+hora de trabajo y es lo que separa "se cayó el sistema" de "se perdió el inventario del
+colegio".
+
+Esto no es opcional. El servidor durmiéndose es una molestia; la base evaporándose, no.
+
+**Lo que sigue siendo distinto respecto al VPS:**
+
+- Al quedar en dominios distintos, se rompe el "mismo dominio" del diseño: hay que pasar la
+  cookie a `SameSite=None; Secure` y configurar CORS con credenciales (está previsto en §0.2
+  del plan de backend, pero es más frágil y lo bloquean algunos navegadores).
+- Se depende de dos terceros gratuitos que pueden cambiar condiciones.
+- Son tres piezas en tres lugares (hosting, backend, base) en vez de una.
+
+Con el ping, **es una opción real para el uso diario**, no solo para una demostración.
+
+### C. Reescribir en PHP
+
+Es el camino si el colegio decide que no paga nada y que todo tiene que vivir en el hosting
+que ya tiene.
+
+- El **modelo de datos, las reglas de negocio y el contrato de API siguen sirviendo
+  completos**: están escritos aparte del lenguaje, a propósito. El plan de backend se puede
+  seguir casi línea por línea con Laravel.
+- Pero hay que **reescribir el backend entero** y volver a escribir las 93 pruebas. Semanas,
+  no días. Y se tira a la basura un backend que ya funciona y está probado.
+- Ojo con una cosa: PHP tampoco corre "en segundo plano", pero no lo necesita — cada
+  petición levanta un proceso, lo atiende y lo apaga. Por eso el hosting sí lo permite.
+
+### La decisión
+
+**C queda descartada** salvo que la decisión de no gastar nada sea definitiva: son semanas de
+reescribir algo que ya funciona y está probado.
+
+Entre **A** y **B** la diferencia ya no es "una sirve y la otra no" — con el ping, las dos
+sirven para el uso diario. La diferencia es:
+
+| | A. VPS | B. Gratis |
+|---|---|---|
+| Costo | ~Q 40 al mes | Q 0 |
+| Piezas que mantener | una | tres, en tres proveedores |
+| La cookie de sesión | como fue diseñada | `SameSite=None`, más frágil |
+| Si el proveedor cambia las reglas | no aplica | hay que mudarse |
+| Trabajo de código | ninguno | ninguno |
+
+**Recomiendo A** por una razón sola: es una pieza en vez de tres, y el día que algo falle hay
+un solo lugar donde mirar. Pero **B es defendible**, sobre todo para arrancar sin pedir dinero
+y ver si el sistema realmente se usa antes de comprometer un gasto mensual.
 
 ---
 
@@ -162,7 +267,7 @@ Los inodos no son problema ni de cerca.
 
 ---
 
-## 6. Las fotos de los uniformes
+## 6. Las fotos de los uniformes — HECHO
 
 Las 25 fotos que venían con el proyecto del alumno son las mismas que documenta
 `uniformes-ccsf2.md`. Pero vienen sin optimizar, y mucho:
@@ -181,26 +286,50 @@ no para mostrar un polo en una pantalla de venta. Servir 2.7 MB para que se vea 
 de 200 píxeles, sobre el WiFi del colegio y con alguien esperando en la ventanilla, es la
 diferencia entre instantáneo e inusable.
 
-**Qué hacer:** generar dos versiones de cada foto y subir solo esas.
+**Ya está resuelto.** Se generaron dos versiones de cada foto y viven en el repositorio, en
+`web/public/uniformes/`:
 
-| Uso | Tamaño | Peso estimado |
+| Uso | Tamaño | Peso real |
 |---|---|---|
-| Miniatura en la lista de venta | 200 px de ancho | ~15 KB |
-| Vista de la prenda | 800 px de ancho | ~80 KB |
+| Miniatura (lista de venta, catálogo) | 200 px de ancho | **4–7 KB** |
+| Vista de la prenda | 800 px de ancho | **37–72 KB** |
 
-De 21.3 MB se baja a **menos de 2 MB en total**, sin que se note ninguna diferencia en
-pantalla. Los originales se guardan aparte, fuera del servidor.
+**De 21.3 MB a 1.3 MB**, contando las 50 imágenes (las dos versiones de cada una). Medido en
+la pantalla de venta con la lista completa: **31 miniaturas pesan 157 KB en total**. Con los
+originales habrían sido decenas de megas.
 
-> El `.rar` con las fotos no lo pude abrir: esta computadora no tiene 7-Zip ni WinRAR. Si
-> trae originales distintos o mejores, pasámelo como `.zip` y lo reviso.
+El sitio estático completo que se sube al hosting —aplicación compilada más fotos— queda en
+**1.7 MB**.
+
+Dos cosas que salieron al hacerlo:
+
+- **Los nombres de archivo no eran los que yo suponía.** El seed decía `foto.15.jpg` para las
+  prendas de educación física, pero los archivos reales se llaman `15.jpg`. Estaba anotado
+  como suposición en el código y resultó equivocada; ya está corregido contra los archivos
+  de verdad.
+- **Las fotos las sirve el frontend, no el backend.** Son archivos estáticos: los sirve el
+  hosting que ya tienen, gratis y rápido, sin gastar ni una hora de las 750 de Render. Por
+  eso `MEDIA_BASE_URL` apunta al sitio y no a la API.
+
+> El `.rar` no lo pude abrir: esta computadora no tiene 7-Zip ni WinRAR. Si trae originales
+> distintos o mejores, pasámelo como `.zip` y regenero las dos versiones.
 
 ---
 
 ## 7. Resumen
 
-- **Docker queda descartado** en el hosting actual. No es que sea difícil: no se puede.
-- **El precedente del alumno solo prueba hosting estático**, no Node ni base de datos.
-- **Falta confirmar tres cosas en el panel** (§3) antes de decidir.
-- **La recomendación es un VPS**: cero reescritura, y el plan de despliegue ya está escrito.
+- **El hosting actual no puede correr este backend.** No por falta de Node: porque no permite
+  dejar un proceso corriendo, que es lo que un backend necesita para existir.
+- **El precedente del alumno solo probaba hosting estático**, no Node ni base de datos.
+- **Se eligió la opción gratuita (B):** frontend en el hosting que ya tienen, backend en
+  Render, base en **Neon** (la única de las tres que no caduca ni se pausa sola).
+- **El ping va solo en horario de colegio**, no 24/7: las horas gratuitas de Render se gastan
+  teniendo el servidor despierto, y agotarlas suspende el servicio hasta el mes siguiente.
+- **Falta lo único que no es opcional: los respaldos.** Los planes gratuitos no los hacen, y
+  acá viven las ventas del colegio.
+- El VPS (~Q 40 al mes) sigue siendo la opción más simple de mantener si algún día el colegio
+  decide pagarlo: una pieza en vez de tres, y sin cuotas que vigilar.
+- El hosting actual **no se tira**: puede seguir con el sitio del colegio, y el inventario vive
+  en un subdominio apuntado al VPS.
 - **La optimización más grande no es del código: son las fotos** (21.3 MB → menos de 2 MB).
 - Y hay que **cambiar las contraseñas** que el sitio anterior publicó en su JavaScript.

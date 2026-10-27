@@ -44,10 +44,11 @@ type PrendaDef = {
   stockMinimo: number;
   tallas: TallaDef[];
   /**
-   * Nombres de archivo del sitio anterior. En uniformes-ccsf2.md las fotos del
-   * uniforme de fisica aparecen como numeros sueltos ("15, 16, 17...") y las de
-   * diario como "foto.1.jpg", asi que aqui se asume el mismo patron foto.N.jpg
-   * para todas. Si en el servidor se llaman distinto, se corrige aqui.
+   * Nombres de archivo tal como vienen del sitio anterior. Los del uniforme de
+   * diario se llaman "foto.N.jpg" y los de fisica son numeros sueltos,
+   * "15.jpg" — confirmado contra los archivos reales, no supuesto.
+   *
+   * Viven en web/public/uniformes/ (y su miniatura en uniformes/mini/).
    */
   fotos: string[];
 };
@@ -85,7 +86,7 @@ const CATALOGO: Array<{
           { talla: '36', precioCentavos: Q(155), stockInicial: 3 },
           { talla: '38', precioCentavos: Q(165), stockInicial: 0 },
         ],
-        fotos: ['foto.1.jpg', 'foto.2.jpg', 'foto.4.jpg'],
+        fotos: ['foto.2.jpg', 'foto.7.jpg', 'foto.8.jpg'],
       },
       {
         nombre: 'Chumpa institucional',
@@ -93,7 +94,7 @@ const CATALOGO: Array<{
         tipoTalla: 'LETRA',
         stockMinimo: 3,
         tallas: tallasLetra(225, { XS: 4, S: 7, M: 9, L: 5, XL: 2 }),
-        fotos: ['foto.2.jpg', 'foto.4.jpg', 'foto.6.jpg'],
+        fotos: ['foto.4.jpg', 'foto.6.jpg', 'foto.9.jpg'],
       },
     ],
   },
@@ -108,7 +109,7 @@ const CATALOGO: Array<{
         tipoTalla: 'LETRA',
         stockMinimo: 5,
         tallas: tallasLetra(75, { XS: 10, S: 16, M: 18, L: 9, XL: 3 }),
-        fotos: ['foto.15.jpg', 'foto.16.jpg', 'foto.17.jpg'],
+        fotos: ['15.jpg', '16.jpg', '17.jpg'],
       },
       {
         nombre: 'Pants deportivo',
@@ -116,7 +117,7 @@ const CATALOGO: Array<{
         tipoTalla: 'LETRA',
         stockMinimo: 5,
         tallas: tallasLetra(135, { XS: 7, S: 12, M: 15, L: 8, XL: 1 }),
-        fotos: ['foto.15.jpg', 'foto.22.jpg', 'foto.23.jpg'],
+        fotos: ['18.jpg', '19.jpg', '20.jpg'],
       },
       {
         nombre: 'Chumpa deportiva',
@@ -124,7 +125,7 @@ const CATALOGO: Array<{
         tipoTalla: 'LETRA',
         stockMinimo: 3,
         tallas: tallasLetra(195, { XS: 3, S: 6, M: 8, L: 4, XL: 0 }),
-        fotos: ['foto.22.jpg', 'foto.25.jpg', 'foto.27.jpg'],
+        fotos: ['22.jpg', '23.jpg', '25.jpg'],
       },
     ],
   },

@@ -146,11 +146,30 @@ export function Vender() {
                     }}
                     className="flex w-full items-center justify-between gap-3 px-1 py-3 text-left transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium text-slate-900">
-                        {vendible.titulo}
+                    <span className="flex min-w-0 items-center gap-3">
+                      {/* Miniatura de 200 px (~7 KB). La lista carga 37 de estas:
+                          con los originales de 2.7 MB serian 100 MB. */}
+                      {vendible.miniatura ? (
+                        <img
+                          src={vendible.miniatura}
+                          alt=""
+                          loading="lazy"
+                          width={40}
+                          height={40}
+                          className="h-10 w-10 shrink-0 rounded border border-slate-200 bg-white object-contain"
+                        />
+                      ) : (
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-50 text-[10px] text-slate-400">
+                          bolsa
+                        </span>
+                      )}
+
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-slate-900">
+                          {vendible.titulo}
+                        </span>
+                        <span className="block text-sm text-slate-500">{vendible.detalle}</span>
                       </span>
-                      <span className="block text-sm text-slate-500">{vendible.detalle}</span>
                     </span>
 
                     <span className="shrink-0 text-right">

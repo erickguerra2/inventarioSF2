@@ -90,7 +90,26 @@ export function Catalogo() {
               {delGrupo.map((prenda) => (
                 <Tarjeta key={prenda.id} className={prenda.activo ? '' : 'opacity-60'}>
                   <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                    <div>
+                    <div className="flex items-start gap-3">
+                      {prenda.fotos.length > 0 ? (
+                        <a
+                          href={prenda.fotos[0]?.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Ver la foto en grande"
+                        >
+                          <img
+                            src={prenda.fotos[0]?.urlMini}
+                            alt={prenda.fotos[0]?.alt ?? prenda.nombre}
+                            loading="lazy"
+                            width={56}
+                            height={56}
+                            className="h-14 w-14 rounded border border-slate-200 bg-white object-contain"
+                          />
+                        </a>
+                      ) : null}
+
+                      <div>
                       <h3 className="font-semibold text-slate-900">
                         {prenda.nombre}
                         {!prenda.activo ? (
@@ -102,6 +121,7 @@ export function Catalogo() {
                       {prenda.descripcion ? (
                         <p className="text-sm text-slate-500">{prenda.descripcion}</p>
                       ) : null}
+                      </div>
                     </div>
 
                     <div className="flex gap-3 text-sm">

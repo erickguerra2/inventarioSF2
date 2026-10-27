@@ -16,6 +16,8 @@ export type Vendible = {
   precioCentavos: number;
   stockActual: number;
   disponible: boolean;
+  /** La miniatura (200 px). Las bolsas no tienen foto. */
+  miniatura: string | null;
   /** Las palabras por las que se puede encontrar, ya normalizadas. */
   palabras: string[];
   /** Posicion en el catalogo tal como lo ordena el backend. */
@@ -24,6 +26,8 @@ export type Vendible = {
 
 
 function dePrenda(prenda: Prenda): Array<Omit<Vendible, 'orden'>> {
+  const principal = prenda.fotos.find((foto) => foto.esPrincipal) ?? prenda.fotos[0];
+
   return prenda.variantes.map((variante) => ({
     itemId: variante.itemId,
     tipo: 'UNIFORME_TALLA' as const,
@@ -32,6 +36,7 @@ function dePrenda(prenda: Prenda): Array<Omit<Vendible, 'orden'>> {
     precioCentavos: variante.precioCentavos,
     stockActual: variante.stockActual,
     disponible: variante.disponible,
+    miniatura: principal?.urlMini ?? null,
     palabras: enPalabras(
       `${prenda.nombre} ${variante.talla} ${prenda.categoria.nombre} ${variante.sku}`,
     ),
@@ -47,6 +52,7 @@ function deBolsa(bolsa: Bolsa): Omit<Vendible, 'orden'> {
     precioCentavos: bolsa.precioCentavos,
     stockActual: bolsa.stockActual,
     disponible: bolsa.disponible,
+    miniatura: null, // las bolsas no tienen foto
     palabras: enPalabras(
       `bolsa utiles ${bolsa.grado.nombre} ${bolsa.grado.nivel.nombre} ${bolsa.ciclo.anio} ${bolsa.sku}`,
     ),

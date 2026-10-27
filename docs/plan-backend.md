@@ -1304,20 +1304,13 @@ Seis respuestas que cambian el alcance. La primera conviene resolverla **antes d
 una línea**, porque es la única que puede invalidar el stack; las dos siguientes, antes de
 construir las ventas (Fase 4).
 
-1. **¿Qué es exactamente ese servidor?** — **RESPONDIDA**: es Hostinger **Business Web
-   Hosting**, hosting compartido. El análisis completo, con lo que hay que confirmar todavía
-   y las opciones, está en [despliegue.md](despliegue.md). Lo que ya quedó claro: **Docker no
-   es una opción ahí**, y el proyecto anterior del alumno era un sitio estático, así que no
-   prueba que el servidor corra Node. Lo de abajo se conserva porque describe los tres
-   caminos posibles:
-   - **VPS o servidor propio** (root, cualquier cosa): el plan aplica tal cual.
-   - **Hosting compartido con Node** (Passenger / "Setup Node.js App") y MySQL en vez de
-     Postgres: el plan aplica, con dos cambios — Prisma sobre MySQL y el `FOR UPDATE` de §3
-     y §4 funciona igual en InnoDB, pero se pierden algunos detalles de Postgres (secuencias
-     se vuelven `AUTO_INCREMENT`, `Json` se comporta distinto).
-   - **Hosting compartido solo PHP/MySQL:** el modelo de datos, las reglas de negocio y el
-     contrato de API de este documento se mantienen completos, pero la implementación sería
-     Laravel en vez de Node. Las transacciones, locks y el ledger son los mismos conceptos.
+1. **¿Qué es exactamente ese servidor?** — **CERRADA.** Es Hostinger **Business Web Hosting**,
+   hosting compartido, y el proveedor confirmó que **no tiene Node.js ni permite ejecutar
+   procesos en segundo plano**; es PHP con MySQL/MariaDB. Eso significa que **este backend no
+   puede correr ahí**: no por falta de Node, sino porque un backend necesita quedarse
+   encendido y el plan no lo permite. Las opciones que quedan —VPS (recomendado), plan
+   gratuito externo, o reescribir en PHP— están en [despliegue.md](despliegue.md) §4.
+   Mientras no se decida, el sistema corre completo en local.
 2. **¿Cada maestra entrega su propio efectivo?** Si sí, el corte de caja por maestra es
    funcionalidad central y no un reporte más. Si todo el efectivo va a una sola caja, el
    corte por usuario pasa a ser solo informativo.
