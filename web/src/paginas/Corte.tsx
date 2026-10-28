@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api } from '../api/cliente.ts';
 import { mensajeDeError } from '../api/errores.ts';
 import type { CorteDeCaja, MetodoPago } from '../api/modelos.ts';
+import { BotonExportar } from '../componentes/BotonExportar.tsx';
 import { Aviso, Cargando, Quetzales, Tarjeta, Titulo } from '../componentes/ui.tsx';
 import { fechaLarga, hoyISO } from '../utilidades/fechas.ts';
 
@@ -61,12 +62,7 @@ export function Corte() {
             />
           </label>
 
-          <a
-            href={`/api/v1/reportes/corte-caja?fecha=${fecha}&formato=csv`}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Exportar a Excel
-          </a>
+          <BotonExportar ruta={`/reportes/corte-caja?fecha=${fecha}`} />
         </div>
         <p className="mt-2 text-xs text-slate-500">{fechaLarga(fecha)}</p>
       </Tarjeta>

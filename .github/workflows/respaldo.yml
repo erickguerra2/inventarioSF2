@@ -1,0 +1,67 @@
+# Respaldo diario de la base de datos.
+#
+# Ni Render ni Neon respaldan nada en sus planes gratuitos: el restore por punto
+# en el tiempo de Neon cubre apenas 6 horas. Un borrado por error de hace dos
+# dias no se recupera de ninguna otra forma, asi que esto NO es opcional.
+#
+# El archivo queda como artefacto del repositorio, cifrado. El volcado incluye
+# los hashes de las contrasenas de las usuarias, asi que se cifra siempre, sin
+# importar si el repositorio es privado.
+
+name: Respaldo
+
+on:
+  schedule:
+    # 07:00 UTC = 01:00 en Guatemala: ya cerro el dia de ventas.
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  respaldar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generar el volcado
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PASSPHRASE: ${{ secrets.RESPALDO_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DATABASE_URL:-}" ] || [ -z "${PASSPHRASE:-}" ]; then
+            echo "Faltan secretos. En Settings > Secrets and variables > Actions:"
+            echo "  DATABASE_URL         la cadena DIRECTA de Neon (la que NO dice -pooler)"
+            echo "  RESPALDO_PASSPHRASE  la clave para descifrar el respaldo; guardarla aparte"
+            exit 1
+          fi
+
+          NOMBRE="respaldo-$(date -u +%Y-%m-%d)"
+
+          # pg_dump va dentro de un contenedor para fijar la version 17, la misma
+          # de Neon. El runner de Ubuntu trae la 16, y un pg_dump mas viejo que el
+          # servidor se niega a trabajar.
+          docker run --rm -e DATABASE_URL postgres:17-alpine \
+            sh -c 'pg_dump "$DATABASE_URL" --no-owner --no-privileges' > "$NOMBRE.sql"
+
+          # Un volcado vacio o truncado es peor que ninguno, porque da falsa
+          # tranquilidad. Si no trae el final que escribe pg_dump, se cae aqui.
+          if ! grep -q "PostgreSQL database dump complete" "$NOMBRE.sql"; then
+            echo "El volcado quedo incompleto; no se sube nada."
+            exit 1
+          fi
+
+          gzip -9 "$NOMBRE.sql"
+          printf '%s' "$PASSPHRASE" | gpg --batch --yes --quiet \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 \
+            --output "$NOMBRE.sql.gz.gpg" "$NOMBRE.sql.gz"
+          rm "$NOMBRE.sql.gz"
+
+          echo "ARCHIVO=$NOMBRE.sql.gz.gpg" >> "$GITHUB_ENV"
+          echo "- \`$NOMBRE.sql.gz.gpg\` ($(du -h "$NOMBRE.sql.gz.gpg" | cut -f1))" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Subir el respaldo
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARCHIVO }}
+          path: ${{ env.ARCHIVO }}
+          retention-days: 30
+          if-no-files-found: error

@@ -4,7 +4,8 @@ import { prisma } from './shared/prisma.js';
 
 const app = await construirApp();
 
-// En produccion escucha en todas las interfaces porque nginx le hace proxy.
+// En produccion escucha en todas las interfaces porque el servicio corre detras
+// del balanceador de Render, que entra por otra interfaz.
 // En desarrollo, solo local.
 const host = env.esProduccion ? '0.0.0.0' : '127.0.0.1';
 

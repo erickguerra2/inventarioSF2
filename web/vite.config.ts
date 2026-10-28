@@ -8,7 +8,8 @@ export default defineConfig({
     port: 5173,
     // El backend va detras de /api, para que la cookie de sesion sea del MISMO
     // origen que la pagina. Asi no hay CORS en desarrollo y se parece a
-    // produccion, donde nginx sirve los estaticos y hace proxy de /api.
+    // produccion cuando la API cuelga del mismo dominio. Si va en otro (Render), se
+    // compila con VITE_API_URL y este proxy solo sirve para desarrollo.
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:3000',

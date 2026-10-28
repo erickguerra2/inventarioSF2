@@ -1,0 +1,68 @@
+# Despliegue del BACKEND en Render (plan gratuito).
+#
+# El frontend no va aqui: se compila con `npm run build` dentro de web/ y los
+# archivos de web/dist/ se suben al hosting del colegio. Ver docs/despliegue.md.
+#
+# Para crear el servicio: en Render, New > Blueprint, y apuntarlo a este repo.
+# Render lee este archivo y pide los dos valores marcados `sync: false`.
+
+services:
+  - type: web
+    name: inventario-ccsf2-api
+    runtime: node
+    plan: free
+    # Virginia es la region gratuita mas cercana a Guatemala. La base de datos en
+    # Neon tiene que quedar en la MISMA region (AWS us-east-1): cada consulta
+    # cruza la red, y si estan en costas opuestas se nota en cada venta.
+    region: virginia
+
+    # --include=dev no es opcional: Render pone NODE_ENV=production en los
+    # servicios de Node, y con eso `npm ci` se salta las devDependencies, que es
+    # justo donde viven typescript y el CLI de prisma. Sin esto el build falla
+    # con "tsc: not found".
+    #
+    # Las migraciones corren aqui, en el build, y no como preDeployCommand:
+    # el plan gratuito no garantiza ese paso. Si una migracion falla, el build
+    # falla y Render deja corriendo la version anterior.
+    buildCommand: npm ci --include=dev && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: npm start
+
+    # Render reinicia el servicio si esto deja de responder. Es /health a
+    # proposito y no /health/db: ver el comentario del ping en
+    # .github/workflows/ping.yml.
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      # Sin esto los cortes de caja salen con el dia equivocado: el servidor de
+      # Render esta en UTC y las fronteras del dia se calculan en esta zona.
+      - key: TZ
+        value: America/Guatemala
+
+      # La pagina y la API quedan en dominios distintos, asi que la cookie de
+      # sesion necesita SameSite=None. Exige HTTPS en los dos lados; Render da
+      # HTTPS solo, y el hosting del colegio ya tiene certificado.
+      - key: COOKIE_SAMESITE
+        value: none
+
+      # Los dos apuntan al dominio del FRONTEND, no a este servicio:
+      #   CORS_ORIGINS   -> desde donde se permite llamar a la API
+      #   MEDIA_BASE_URL -> desde donde se sirven las fotos de los uniformes
+      # Ajustar si el dominio real del colegio es otro.
+      - key: CORS_ORIGINS
+        value: https://inventario.ccsf2.edu.gt
+      - key: MEDIA_BASE_URL
+        value: https://inventario.ccsf2.edu.gt
+
+      # Render los pide al crear el blueprint y no quedan en el repositorio.
+      #   DATABASE_URL   -> la cadena DIRECTA de Neon (la que NO dice -pooler),
+      #                     con ?sslmode=require&connection_limit=5
+      #   SESSION_SECRET -> 48 bytes al azar en hex; generarlo con
+      #                     node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false

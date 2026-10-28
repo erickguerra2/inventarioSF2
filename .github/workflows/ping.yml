@@ -1,0 +1,49 @@
+# Mantiene despierto el backend durante el horario del colegio.
+#
+# Render duerme un servicio gratuito a los 15 minutos sin trafico, y volver a
+# levantarlo tarda cerca de un minuto. Con este ping cada 10 minutos, quien entre
+# a vender encuentra la pagina ya despierta.
+#
+# Por que NO corre a toda hora:
+# Render da 750 horas de servicio gratuito por mes y por cuenta, y al pasarse
+# SUSPENDE todos los servicios gratuitos hasta el mes siguiente. Un mes de 31
+# dias tiene 744 horas, asi que estar arriba 24/7 deja 6 horas de margen y cada
+# despliegue se come una parte. Solo en horario de colegio son unas 312 horas al
+# mes: queda la mitad del cupo libre.
+#
+# Por que le pega a /health y no a /health/db:
+# /health no toca la base. Neon tambien duerme a los 5 minutos y su plan gratuito
+# da 100 CU-horas al mes (unas 400 horas de computo a 0.25 CU). Si el ping
+# despertara la base cada 10 minutos, se irian ~312 horas de ese cupo sin que
+# nadie haya vendido nada. Asi la base solo despierta cuando hay una venta de
+# verdad, y tarda medio segundo en hacerlo.
+
+name: Ping
+
+on:
+  schedule:
+    # Cada 10 minutos, de 12:00 a 23:59 UTC, lunes a sabado.
+    # Guatemala es UTC-6 todo el ano (no hay horario de verano), asi que eso es
+    # de 06:00 a 18:00 hora local.
+    - cron: '*/10 12-23 * * 1-6'
+  workflow_dispatch:
+
+jobs:
+  despertar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Despertar el backend
+        env:
+          URL: ${{ vars.URL_BACKEND }}
+        run: |
+          if [ -z "$URL" ]; then
+            echo "Falta la variable URL_BACKEND del repositorio."
+            echo "Settings > Secrets and variables > Actions > Variables."
+            exit 1
+          fi
+          # Hasta 3 intentos con 70 segundos de espera: si el servicio estaba
+          # dormido, el primero se cae por timeout mientras Render lo levanta.
+          curl --fail --silent --show-error --location \
+            --max-time 90 --retry 3 --retry-delay 70 --retry-all-errors \
+            "${URL%/}/health"
+          echo ""

@@ -11,6 +11,21 @@
  *   `apiConMeta` devuelve el cuerpo completo.
  */
 
+/**
+ * De donde cuelga la API.
+ *
+ * - En desarrollo queda vacio: Vite hace proxy de /api al backend, asi que la
+ *   peticion es del mismo origen y la cookie viaja sola.
+ * - En produccion, si el backend vive en otro dominio (Render), se compila con
+ *   VITE_API_URL apuntando ahi.
+ */
+const BASE = import.meta.env['VITE_API_URL']?.replace(/\/+$/, '') ?? '';
+
+/** La URL completa de un endpoint. Para enlaces de descarga, que no pasan por fetch. */
+export function urlApi(ruta: string): string {
+  return `${BASE}/api/v1${ruta}`;
+}
+
 export class ErrorApi extends Error {
   constructor(
     readonly code: string,
@@ -36,7 +51,7 @@ type Opciones = Omit<RequestInit, 'body'> & {
 async function pedir(ruta: string, opciones: Opciones = {}): Promise<unknown> {
   const { body, idempotencyKey, headers, ...resto } = opciones;
 
-  const respuesta = await fetch(`/api/v1${ruta}`, {
+  const respuesta = await fetch(urlApi(ruta), {
     ...resto,
     credentials: 'include',
     body: body === undefined ? undefined : JSON.stringify(body),

@@ -10,9 +10,18 @@ const esquema = z.object({
   DATABASE_URL: z.string().min(1, 'es obligatoria'),
   SESSION_SECRET: z.string().min(32, 'debe tener al menos 32 caracteres'),
   MEDIA_BASE_URL: z.string().url('debe ser una URL absoluta, p. ej. https://inventario.ccsf2.edu.gt'),
-  // Separados por coma. En produccion el frontend va en el mismo dominio y esto
-  // queda vacio; en desarrollo es el puerto de Vite.
+  // Separados por coma. Si el frontend vive en otro dominio (hosting aparte del
+  // backend), aqui van sus origenes exactos.
   CORS_ORIGINS: z.string().default(''),
+
+  /**
+   * `lax` cuando el frontend y la API comparten dominio: es lo mas seguro.
+   * `none` cuando estan en dominios distintos —por ejemplo la pagina en el
+   * hosting del colegio y la API en Render—, porque si no el navegador no manda
+   * la cookie de sesion y todo responde 401. Con `none`, la cookie SIEMPRE viaja
+   * marcada como Secure, que es lo que exigen los navegadores.
+   */
+  COOKIE_SAMESITE: z.enum(['lax', 'none']).default('lax'),
 });
 
 const resultado = esquema.safeParse(process.env);

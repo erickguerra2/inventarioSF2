@@ -146,9 +146,10 @@ cron gratuito (cron-job.org, o un workflow de GitHub Actions). Pero **no convien
 
 Render da **750 horas de instancia gratis al mes por workspace**, y un servicio dormido no
 consume ninguna. El detalle que cambia todo: **el ping consume justamente las horas que
-protege**. Un servicio despierto las 24 horas gasta unas 730 al mes — o sea, casi toda la
-cuota. Y si se agota, **Render suspende todos los servicios gratuitos del workspace hasta el
-mes siguiente**.
+protege**. Un servicio despierto las 24 horas gasta unas **744 al mes** (un mes de 31 días tiene
+exactamente 744), o sea la cuota entera menos 6 horas de margen — y cada despliegue se come
+una parte. Y si se agota, **Render suspende todos los servicios gratuitos del workspace
+hasta el mes siguiente**.
 
 Es decir: tener el ping siempre encendido es la forma más fácil de que el sistema se caiga
 justo en enero, que es cuando no puede caerse.
@@ -158,18 +159,25 @@ justo en enero, que es cuando no puede caerse.
 | | |
 |---|---|
 | Ping cada 10 min, de 6:00 a 18:00 | ~12 h/día |
-| En un mes de 31 días | **~372 horas** |
+| En un mes de 31 días, de lunes a sábado | **~312 horas** |
 | Cuota de Render | 750 horas |
 | Margen | sobra la mitad |
 
 Fuera de ese horario el servidor duerme y no gasta nada. Si alguien entra a las 9 de la
 noche, espera el minuto de arranque — y a esa hora no hay nadie vendiendo.
 
-> **Ojo con la otra cuota.** Mantener el backend despierto también mantiene abierta su
-> conexión a la base, y **Neon da 100 CU-hours al mes**. Con el horario de arriba se queda
-> cerca del límite, así que conviene **revisar el consumo real el primer mes** en los paneles
-> de los dos servicios, y recortar el horario si hace falta. De las dos cuotas, la de Neon es
-> la más apretada.
+> **La otra cuota, y por qué el ping le pega a `/health` y no a `/health/db`.** Neon da
+> **100 CU-hours al mes** y suspende su computación a los 5 minutos de inactividad, donde
+> "inactividad" significa *sin consultas*: una conexión abierta pero quieta no la mantiene
+> despierta.
+>
+> `/health` no toca la base. Entonces el ping mantiene despierto a **Render sin despertar a
+> Neon**: la base solo arranca cuando alguien entra o vende de verdad, y tarda medio segundo
+> en hacerlo. Si el ping le pegara a `/health/db`, se irían unas **78 de las 100 CU-hours
+> sin que nadie hubiera vendido nada**, y ahí sí la cuota de Neon sería la más apretada.
+>
+> Lo de la conexión quieta está medido por terceros, no documentado por Neon, así que de
+> todos modos vale **revisar el consumo real el primer mes** en los dos paneles.
 
 ### Los respaldos son el verdadero riesgo, no el arranque
 
@@ -177,18 +185,21 @@ Los planes gratuitos **no hacen respaldos automáticos**, y la recuperación a u
 tiempo de Neon en el plan gratuito es de pocas horas. El plan de backend (§13) pide respaldo
 diario probado, y acá no hay servidor donde programarlo.
 
-**Solución gratis:** un workflow de GitHub Actions, una vez al día, que corra `pg_dump`
-contra la base y guarde el resultado como artefacto o en un repositorio privado. Es media
-hora de trabajo y es lo que separa "se cayó el sistema" de "se perdió el inventario del
-colegio".
+**Solución gratis, y ya está hecha:** [`.github/workflows/respaldo.yml`](../.github/workflows/respaldo.yml)
+corre `pg_dump` una vez al día contra Neon y guarda el resultado como artefacto del
+repositorio, **cifrado con AES-256** (el volcado incluye los hashes de las contraseñas de las
+usuarias, así que se cifra pase lo que pase con la visibilidad del repositorio). Si el volcado
+sale truncado, el workflow falla en vez de subir un archivo inútil: un respaldo vacío es peor
+que ninguno, porque da falsa tranquilidad.
 
 Esto no es opcional. El servidor durmiéndose es una molestia; la base evaporándose, no.
 
 **Lo que sigue siendo distinto respecto al VPS:**
 
-- Al quedar en dominios distintos, se rompe el "mismo dominio" del diseño: hay que pasar la
-  cookie a `SameSite=None; Secure` y configurar CORS con credenciales (está previsto en §0.2
-  del plan de backend, pero es más frágil y lo bloquean algunos navegadores).
+- Al quedar en dominios distintos se rompe el "mismo dominio" del diseño. Ya está resuelto:
+  la cookie se marca según `COOKIE_SAMESITE` y el frontend se compila con `VITE_API_URL`
+  (§7.2 y §7.4). Pero es más frágil que el mismo dominio, y un navegador con las cookies de
+  terceros bloqueadas a mano no deja entrar.
 - Se depende de dos terceros gratuitos que pueden cambiar condiciones.
 - Son tres piezas en tres lugares (hosting, backend, base) en vez de una.
 
@@ -245,25 +256,37 @@ Esto aplica a cualquiera de las opciones, y varias ya están hechas.
 
 Los inodos no son problema ni de cerca.
 
-### Lo que hay que hacer al desplegar
+### Lo que hay que hacer al desplegar — y qué cambió al elegir la opción B
 
-1. **Compilar en la computadora, no en el servidor.** `npm run build` y `npm --prefix web run
-   build` se corren localmente; al servidor sube el resultado. Compilar TypeScript en una
-   máquina de 2 núcleos compartidos es regalarle trabajo al servidor cada despliegue.
-2. **Instalar sin dependencias de desarrollo:** `npm ci --omit=dev`. Quita TypeScript, Vite,
-   Vitest y Prisma CLI del servidor: menos disco, menos archivos y menos superficie.
-3. **Limitar el pool de conexiones de Prisma.** Por omisión abre `núcleos × 2 + 1`. En un
-   servidor compartido, y más con una base remota (opción B), conviene bajarlo:
-   ```
-   DATABASE_URL="postgresql://...?connection_limit=3&pool_timeout=20"
-   ```
-4. **Limitar la memoria de Node:** arrancarlo con `--max-old-space-size=320`. Con eso el
-   proceso no crece más de lo necesario y, si algo se desboca, falla rápido en vez de
-   tumbar al vecino.
-5. **Cabeceras de caché para los estáticos.** Los archivos del build llevan hash en el
-   nombre (`index-Di9XkDNI.js`), así que pueden cachearse un año sin riesgo. `index.html`,
-   nunca.
-6. **Optimizar las fotos de los uniformes** (ver abajo). Es, de lejos, la ganancia más grande.
+Esta lista estaba escrita pensando en el VPS. Al elegir la opción gratuita, **dos de sus
+puntos se invirtieron**, y vale dejarlo anotado porque son justo los que uno copiaría sin
+pensar.
+
+1. ~~**Compilar en la computadora, no en el servidor.**~~ **Ya no aplica así.** Render compila
+   en su propia máquina: es como funciona el blueprint, y no gasta nada del hosting del
+   colegio. Lo que sí se compila localmente es el **frontend** (§7.4), porque el hosting solo
+   sabe servir archivos.
+2. ~~**Instalar sin dependencias de desarrollo:** `npm ci --omit=dev`.~~ **En Render es al
+   revés.** Render pone `NODE_ENV=production` en los servicios de Node, y con eso `npm ci`
+   se salta por su cuenta las `devDependencies` — que es donde viven TypeScript y el CLI de
+   Prisma, los dos necesarios *para compilar*. De ahí que el `buildCommand` diga
+   `npm ci --include=dev`. Sin eso el despliegue falla con `tsc: not found`. Era buen consejo
+   para un VPS, donde sube el `dist/` ya compilado.
+3. **Limitar el pool de conexiones de Prisma.** ✔ **Hecho**: la cadena de Neon lleva
+   `connection_limit=5` (§7.1). Por omisión Prisma abre `núcleos × 2 + 1`, que acá no hace
+   falta y en la base remota solo son conexiones ocupadas de gusto.
+4. **Limitar la memoria de Node.** ✔ **Hecho**: `npm start` arranca con
+   `--max-old-space-size=320`. La instancia gratuita de Render tiene 512 MB, así que el
+   proceso falla rápido en vez de que lo mate el sistema a media venta.
+5. **Cabeceras de caché para los estáticos.** ✔ **Hecho**: están en
+   [`web/public/.htaccess`](../web/public/.htaccess). Los archivos del build llevan hash en el
+   nombre (`index-UoxYfM9x.js`), así que se cachean un año; `index.html`, nunca.
+6. **Optimizar las fotos de los uniformes.** ✔ **Hecho**: §6, de 21.3 MB a 1.3 MB.
+7. **Compilar solo `src/` para producción.** ✔ **Hecho**: `tsconfig.build.json`. El
+   `tsconfig.json` principal incluye además `prisma/`, `tests/` y `scripts/` porque sirve
+   para revisar tipos de todo el proyecto; compilando con él, las pruebas y el seed terminaban
+   dentro de `dist/` y el servidor salía en `dist/src/server.js` en vez de donde lo busca
+   `npm start`. Era un despliegue roto que no se veía ni en desarrollo ni en las pruebas.
 
 ---
 
@@ -316,7 +339,234 @@ Dos cosas que salieron al hacerlo:
 
 ---
 
-## 7. Resumen
+## 7. Guía de despliegue, paso a paso
+
+Hay que tocar cuatro lugares, **en este orden**: Neon (la base), Render (el backend), el
+hosting del colegio (la página) y GitHub (el ping y el respaldo). El orden importa porque cada
+paso necesita un dato del anterior.
+
+Antes de empezar hay que tener: el repositorio subido a GitHub, acceso al panel del hosting, y
+decidido el subdominio donde va a vivir el inventario. Las cuentas de Neon y de Render son
+gratuitas y se crean con un correo.
+
+Lo que ya está escrito en el repositorio y no hay que inventar:
+
+| Archivo | Qué hace |
+|---|---|
+| [`render.yaml`](../render.yaml) | Toda la configuración del backend en Render |
+| [`.github/workflows/ping.yml`](../.github/workflows/ping.yml) | El ping en horario de colegio |
+| [`.github/workflows/respaldo.yml`](../.github/workflows/respaldo.yml) | El respaldo diario cifrado |
+| [`web/public/.htaccess`](../web/public/.htaccess) | Las rutas, la compresión y el caché en el hosting |
+
+---
+
+### 7.1 Neon — la base de datos
+
+1. En **neon.com**, nuevo proyecto:
+   - **Región: AWS us-east-1 (N. Virginia).** Tiene que ser esta, porque es la misma región
+     donde queda el backend en Render. Si la base y el backend caen en costas opuestas, cada
+     consulta cruza el país y se nota en cada venta.
+   - **PostgreSQL 17**, la misma versión que corre en desarrollo y en las pruebas.
+2. Copiar la cadena de conexión **directa**: la que **NO** dice `-pooler`. El pooler de Neon
+   trabaja en modo transacción, y este sistema usa `SELECT ... FOR UPDATE` dentro de
+   transacciones para que dos maestras no vendan la misma última talla; por el pooler eso se
+   vuelve impredecible.
+3. Agregarle `&connection_limit=5` al final. Render corre una sola instancia y Prisma, si no
+   se le dice nada, abre un montón de conexiones que acá no hacen falta:
+
+   ```
+   postgresql://USUARIO:CLAVE@ep-xxxx.us-east-1.aws.neon.tech/neondb?sslmode=require&connection_limit=5
+   ```
+
+**Esa cadena se usa en tres lugares** (Render, el seed de la primera vez, y el secreto del
+respaldo en GitHub), así que conviene dejarla a mano — y en ningún archivo del repositorio.
+
+---
+
+### 7.2 Render — el backend
+
+1. Generar el secreto de sesión. Con cualquier otro valor las sesiones de todas las usuarias
+   se invalidan cada vez que se reinicie el servicio:
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+   ```
+
+2. Si el subdominio **no** va a ser `inventario.ccsf2.edu.gt`, cambiar `CORS_ORIGINS` y
+   `MEDIA_BASE_URL` en [`render.yaml`](../render.yaml) antes de seguir. Van sin barra final y
+   apuntan los dos al dominio de la **página**, no al de la API.
+3. En **render.com**: `New` → `Blueprint` → elegir el repositorio. Render lee `render.yaml` y
+   pide los dos valores que no están ahí: `DATABASE_URL` (la cadena del paso 7.1) y
+   `SESSION_SECRET` (el del paso 1).
+4. El primer despliegue tarda unos minutos. Aplica las migraciones él solo, como parte del
+   build; si una migración falla, el build falla y no sube nada roto.
+5. Copiar la URL del servicio, algo como `https://inventario-ccsf2-api.onrender.com`.
+6. Comprobar los dos extremos antes de seguir:
+
+   ```bash
+   curl https://inventario-ccsf2-api.onrender.com/health
+   curl https://inventario-ccsf2-api.onrender.com/health/db
+   ```
+
+   El primero tiene que decir `"ambiente":"production"` — si dice `development`, quedó mal una
+   variable y la cookie va a salir sin `Secure`. El segundo es el que confirma que el backend
+   de verdad alcanza a Neon.
+
+---
+
+### 7.3 La primera usuaria y el catálogo — el seed
+
+El plan gratuito de Render no da consola, así que el seed se corre **desde tu computadora**
+apuntando a Neon. Es idempotente: no duplica ni pisa precios o existencias ya ajustados a
+mano, pero igual esta es la única vez que se corre contra la base de verdad.
+
+```powershell
+$env:DATABASE_URL = "postgresql://...&connection_limit=5"
+$env:SEED_ADMIN_PASSWORD = "la-que-va-a-usar-la-directora"
+npm run seed
+Remove-Item Env:\DATABASE_URL, Env:\SEED_ADMIN_PASSWORD
+```
+
+Deja creados los niveles, los grados, el ciclo escolar, el catálogo de uniformes con sus
+tallas, las bolsas de útiles y la usuaria `admin`.
+
+> **Dos cosas que quedan mal a propósito y hay que corregir desde la aplicación**, porque el
+> seed no las puede saber:
+>
+> - **Los precios son inventados.** El sitio anterior tenía Q 1.00 en todas las tallas, que
+>   eran valores de prueba. Hay que poner los reales desde la pantalla de catálogo.
+> - **Las existencias son de ejemplo.** Lo correcto es hacer un **conteo físico** desde
+>   *Inventario → Conteo*: eso deja el stock en lo que de verdad hay en la bodega y queda
+>   registrado como un conteo, con su motivo y su fecha.
+>
+> Y que la directora **cambie la contraseña de `admin`** desde la pantalla de usuarias, para
+> que no quede la que se escribió en esa línea de comandos.
+
+---
+
+### 7.4 El hosting del colegio — la página
+
+1. Compilar el frontend **con la URL de Render puesta**:
+
+   ```powershell
+   cd web
+   $env:VITE_API_URL = "https://inventario-ccsf2-api.onrender.com"
+   npm run build
+   Remove-Item Env:\VITE_API_URL
+   ```
+
+   **Vite incrusta esa URL dentro del JavaScript compilado.** No es un archivo de
+   configuración que se pueda editar en el servidor: si algún día cambia la dirección del
+   backend, hay que volver a compilar y volver a subir.
+
+2. Subir **todo** el contenido de `web/dist/` a la carpeta del subdominio en el hosting.
+   Son unos 1.7 MB contando las fotos.
+
+   > **El `.htaccess` es un archivo oculto.** En FileZilla hay que activar
+   > *Servidor → Forzar mostrar archivos ocultos*, y en el administrador de archivos de
+   > Hostinger, la opción equivalente. Si no se sube, la aplicación parece funcionar hasta que
+   > alguien recarga la página.
+
+3. Comprobar que subió bien: escribir `https://EL-SUBDOMINIO/corte` **directo en la barra de
+   direcciones**, no navegando desde el menú. Si sale la pantalla de corte (o el login), el
+   `.htaccess` está puesto. Si sale un 404 del servidor, no subió.
+
+---
+
+### 7.5 GitHub — el ping y el respaldo
+
+En el repositorio, `Settings` → `Secrets and variables` → `Actions`:
+
+| Dónde | Nombre | Valor |
+|---|---|---|
+| **Variables** | `URL_BACKEND` | La URL de Render (`https://...onrender.com`) |
+| **Secrets** | `DATABASE_URL` | La cadena directa de Neon |
+| **Secrets** | `RESPALDO_PASSPHRASE` | Una clave larga, **guardada aparte** |
+
+> **La `RESPALDO_PASSPHRASE` no se puede perder.** Es lo único con lo que se descifran los
+> respaldos; sin ella los archivos no sirven para nada. Que viva en el gestor de contraseñas
+> de la directora, no solo en GitHub.
+
+Después, en la pestaña `Actions`, correr **Ping** y **Respaldo** a mano una vez
+(`Run workflow`). Es la forma de saber que están bien configurados sin esperar a que toque el
+horario.
+
+---
+
+### 7.6 Comprobar que todo quedó
+
+En este orden, porque cada uno descarta una cosa distinta:
+
+1. `/health` responde `"ambiente":"production"` → el backend está arriba y bien configurado.
+2. `/health/db` responde bien → el backend alcanza Neon.
+3. Entrar a la página y **loguearse** → la cookie entre dominios funciona. Si el login
+   responde pero la pantalla siguiente se va al login otra vez, el problema es
+   `COOKIE_SAMESITE` o `CORS_ORIGINS`, no las credenciales.
+4. **Hacer una venta de prueba y anularla** → las transacciones y el stock funcionan contra
+   Neon. Queda registrada como anulada, con su motivo, que es justo como debe quedar.
+5. **Ver una foto de uniforme** en la pantalla de venta → `MEDIA_BASE_URL` apunta bien.
+6. Bajar el artefacto del respaldo y **restaurarlo contra la base local** (§7.8).
+
+---
+
+### 7.7 Lo que hay que vigilar — y el calendario del colegio juega en contra
+
+**GitHub apaga los workflows programados después de 60 días sin actividad en el repositorio.**
+De febrero a octubre nadie va a estar tocando este código, así que es exactamente cuando se
+van a apagar: el ping y el respaldo dejan de correr justo en los meses tranquilos, y para
+noviembre ya nadie se acuerda. GitHub avisa por correo antes de apagarlos.
+
+Dos salidas, y conviene tomar las dos:
+
+- **Para el ping, pasarlo a cron-job.org.** Es gratis, no tiene esa regla, y hace exactamente
+  lo mismo: un `GET` a `https://...onrender.com/health` cada 10 minutos, con el horario
+  limitado de 6:00 a 18:00, lunes a sábado. Si se hace esto, el workflow `ping.yml` se puede
+  borrar.
+- **Para el respaldo, dejarlo en GitHub** (necesita los secretos) y, cuando llegue el correo
+  de GitHub, entrar a `Actions` y darle *Enable workflow*. Lo mismo pasa corriendo cualquier
+  workflow a mano una vez cada dos meses.
+
+Y una vez al mes, durante la temporada: mirar las horas gastadas en el panel de Render y las
+CU-hours en el de Neon. Los dos tienen la cuenta a la vista.
+
+---
+
+### 7.8 Cómo se restaura un respaldo
+
+Esto es la otra mitad del respaldo, y la que casi nadie hace: **un respaldo que nunca se
+probó no es un respaldo**. Conviene hacerlo una vez ahora, contra la base local de Docker, y
+no descubrirlo en enero.
+
+Bajar el artefacto de la pestaña `Actions` del workflow **Respaldo**, y:
+
+```bash
+gpg --output respaldo.sql.gz --decrypt respaldo-2026-11-15.sql.gz.gpg
+gunzip respaldo.sql.gz
+psql "postgresql://inventario:inventario_dev@localhost:5433/inventario" < respaldo.sql
+```
+
+Pide la `RESPALDO_PASSPHRASE` al descifrar. Para restaurar contra Neon de verdad, la última
+línea va con la cadena de Neon en vez de la local — pero eso solo se hace si pasó algo, y
+sobre una base vacía.
+
+---
+
+### 7.9 Lo que cuesta mantener esto
+
+| | |
+|---|---|
+| Dinero | **Q 0** |
+| Atención, en temporada (nov–ene) | mirar las dos cuotas una vez al mes |
+| Atención, fuera de temporada | reactivar los workflows cuando GitHub avise, cada dos meses |
+| Lo que no se puede perder | la `RESPALDO_PASSPHRASE` y el `SESSION_SECRET` |
+
+Si algún día el colegio decide pagar el VPS (~Q 40 al mes), **todo esto desaparece**: una sola
+pieza, respaldos del proveedor, sin cuotas que vigilar y sin workflows que se apaguen solos.
+La comparación completa está en §4.
+
+---
+
+## 8. Resumen
 
 - **El hosting actual no puede correr este backend.** No por falta de Node: porque no permite
   dejar un proceso corriendo, que es lo que un backend necesita para existir.
@@ -325,8 +575,12 @@ Dos cosas que salieron al hacerlo:
   Render, base en **Neon** (la única de las tres que no caduca ni se pausa sola).
 - **El ping va solo en horario de colegio**, no 24/7: las horas gratuitas de Render se gastan
   teniendo el servidor despierto, y agotarlas suspende el servicio hasta el mes siguiente.
-- **Falta lo único que no es opcional: los respaldos.** Los planes gratuitos no los hacen, y
-  acá viven las ventas del colegio.
+- **Los respaldos, que eran lo único no opcional que faltaba, ya están**: un workflow diario
+  que corre `pg_dump` contra Neon y guarda el volcado cifrado. Lo que falta es *probar una
+  restauración* (§7.8), porque un respaldo sin probar no cuenta.
+- **El calendario del colegio juega en contra del cron de GitHub**: apaga los workflows
+  programados tras 60 días sin actividad en el repositorio, y de febrero a octubre no hay
+  actividad. El ping conviene moverlo a cron-job.org (§7.7).
 - El VPS (~Q 40 al mes) sigue siendo la opción más simple de mantener si algún día el colegio
   decide pagarlo: una pieza en vez de tres, y sin cuotas que vigilar.
 - El hosting actual **no se tira**: puede seguir con el sitio del colegio, y el inventario vive

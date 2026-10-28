@@ -14,10 +14,14 @@ import { loginBodySchema } from './auth.schemas.js';
  * solo `credentials: 'include'` en cada fetch.
  */
 function opcionesCookie(): CookieSerializeOptions {
+  // Con el frontend en otro dominio no hay alternativa a SameSite=None, y los
+  // navegadores solo aceptan esa combinacion sobre HTTPS.
+  const entreDominios = env.COOKIE_SAMESITE === 'none';
+
   return {
     httpOnly: true, // el JavaScript de la pagina no la puede leer
-    secure: env.esProduccion, // en produccion solo viaja por HTTPS
-    sameSite: 'lax', // suficiente contra CSRF con dominio propio y sin formularios de terceros
+    secure: env.esProduccion || entreDominios,
+    sameSite: env.COOKIE_SAMESITE,
     path: '/',
     signed: true,
     maxAge: HORAS_DE_SESION * 60 * 60,

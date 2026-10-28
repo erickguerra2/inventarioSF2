@@ -1,0 +1,15 @@
+{
+  // Compilacion para PRODUCCION: solo src/.
+  //
+  // El tsconfig.json principal incluye ademas prisma/, tests/ y scripts/ porque
+  // sirve para revisar tipos de todo el proyecto. Compilar con el metia las
+  // pruebas y el seed dentro de dist/, y empujaba el servidor a dist/src/server.js
+  // en vez de dist/server.js, que es lo que arranca `npm start`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "sourceMap": false
+  },
+  "include": ["src/**/*.ts"]
+}

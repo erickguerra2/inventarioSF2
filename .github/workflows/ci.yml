@@ -38,12 +38,17 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: npm ci
       - run: npx prisma generate
       - run: npm run typecheck
+
+      # El mismo build que corre Render. Esta aqui porque los errores de
+      # compilacion para produccion -rutas de salida, archivos que sobran- no
+      # aparecen en dev ni en las pruebas, solo al desplegar.
+      - run: npm run build
 
       # El openapi.json versionado es lo que consume el frontend: si alguien
       # cambia un esquema y no lo regenera, aqui se ve.
@@ -54,3 +59,9 @@ jobs:
       - run: npx prisma migrate deploy
       - run: npm run seed
       - run: npm test
+
+      # El frontend tambien se despliega, asi que tambien se compila aqui.
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web

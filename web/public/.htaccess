@@ -1,0 +1,63 @@
+# Configuracion del hosting (Apache) para el sitio ya compilado.
+#
+# Vite copia todo lo que esta en web/public/ dentro de web/dist/, este archivo
+# incluido, asi que se sube junto con lo demas y no hay que acordarse de el.
+
+# ---------------------------------------------------------------------------
+# 1. Las rutas de la aplicacion
+# ---------------------------------------------------------------------------
+# Sin esto, entrar directo a /corte o recargar la pagina con F5 devuelve un 404:
+# el navegador le pide /corte a Apache, que busca un archivo con ese nombre y no
+# lo encuentra. Las rutas las resuelve React en el navegador, asi que todo lo que
+# no sea un archivo real tiene que servir index.html.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # La cookie de sesion va con SameSite=None, y eso los navegadores solo lo
+  # aceptan sobre HTTPS. Si por alguna razon esto provocara un bucle de
+  # redirecciones, comentar estas dos lineas y revisar el SSL del hosting.
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# 2. Compresion
+# ---------------------------------------------------------------------------
+# El JavaScript compilado baja a menos de un tercio comprimido. Las fotos ya
+# estan comprimidas y volver a comprimirlas solo gasta CPU.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# 3. Cache
+# ---------------------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # Vite le pone un hash en el nombre a cada archivo que compila, asi que un
+  # archivo con ese nombre nunca cambia de contenido: se puede guardar un ano.
+  <FilesMatch "\.(js|css|woff2)$">
+    ExpiresDefault "access plus 1 year"
+    Header set Cache-Control "public, immutable"
+  </FilesMatch>
+
+  # Las fotos de los uniformes cambian cuando cambia el uniforme: casi nunca.
+  <FilesMatch "\.(jpg|jpeg|png|webp|svg|ico)$">
+    ExpiresDefault "access plus 1 month"
+  </FilesMatch>
+
+  # index.html NO se cachea: es el que dice cuales son los archivos con hash de
+  # la version nueva. Si se guardara, un despliegue no se veria hasta que al
+  # navegador se le antojara.
+  <FilesMatch "index\.html$">
+    ExpiresDefault "access plus 0 seconds"
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
