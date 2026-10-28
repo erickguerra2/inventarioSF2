@@ -8,6 +8,10 @@ type DatosRecibo = {
   estado: 'PAGADA' | 'ANULADA';
   fecha: string;
   comprador: string;
+  /** Ya viene listo para imprimir: el NIT, o "C/F" si no lo dieron. */
+  nit: string;
+  /** El backend duda del NIT. Se avisa en pantalla, pero no se imprime. */
+  nitPorRevisar: boolean;
   atendidoPor: string;
   metodoPago: string;
   referenciaPago: string | null;
@@ -82,6 +86,14 @@ export function Recibo({ ventaId, alCerrar }: { ventaId: string; alCerrar: () =>
                   <dt>Comprador</dt>
                   <dd className="text-right">{recibo.data.comprador}</dd>
                 </div>
+                {/*
+                  El NIT va impreso porque este recibo es lo que la directora
+                  tiene enfrente cuando emite la factura en el portal de la SAT.
+                */}
+                <div className="flex justify-between">
+                  <dt>NIT</dt>
+                  <dd className="text-right font-medium text-slate-800">{recibo.data.nit}</dd>
+                </div>
                 <div className="flex justify-between">
                   <dt>Atendió</dt>
                   <dd className="text-right">{recibo.data.atendidoPor}</dd>
@@ -94,6 +106,18 @@ export function Recibo({ ventaId, alCerrar }: { ventaId: string; alCerrar: () =>
                   </dd>
                 </div>
               </dl>
+
+              {/*
+                Aviso de pantalla, no de papel: el recibo impreso no tiene por
+                que llevarlo, y el NIT se guardo igual. Solo dice "revisalo
+                antes de facturar", nunca impidio cobrar.
+              */}
+              {recibo.data.nitPorRevisar ? (
+                <p className="no-imprimir mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  El dígito verificador de este NIT no cuadra. Conviene confirmarlo antes de
+                  emitir la factura.
+                </p>
+              ) : null}
 
               <table className="mt-4 w-full text-sm">
                 <thead>

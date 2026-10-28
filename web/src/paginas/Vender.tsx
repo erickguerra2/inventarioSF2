@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
 import { api, ErrorApi } from '../api/cliente.ts';
-import { mensajeDeError } from '../api/errores.ts';
+import { camposInvalidos, mensajeDeError } from '../api/errores.ts';
 import type { MetodoPago } from '../api/modelos.ts';
 import { Recibo } from '../componentes/Recibo.tsx';
 import { Aviso, Boton, Cargando, Quetzales, Tarjeta, Titulo } from '../componentes/ui.tsx';
@@ -35,6 +35,7 @@ export function Vender() {
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('EFECTIVO');
   const [mostrarOtrosMetodos, setMostrarOtrosMetodos] = useState(false);
   const [compradorNombre, setCompradorNombre] = useState('');
+  const [compradorNit, setCompradorNit] = useState('');
   const [referenciaPago, setReferenciaPago] = useState('');
   const [descuento, setDescuento] = useState('');
   const [ventaId, setVentaId] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function Vender() {
             cantidad: linea.cantidad,
           })),
           ...(compradorNombre.trim() ? { compradorNombre: compradorNombre.trim() } : {}),
+          ...(compradorNit.trim() ? { compradorNit: compradorNit.trim() } : {}),
           ...(referenciaPago.trim() ? { referenciaPago: referenciaPago.trim() } : {}),
           ...(descuentoCentavos > 0 ? { descuentoCentavos } : {}),
         },
@@ -75,6 +77,7 @@ export function Vender() {
       carrito.limpiar();
       setConsulta('');
       setCompradorNombre('');
+      setCompradorNit('');
       setReferenciaPago('');
       setDescuento('');
       setClaveIdempotencia(crypto.randomUUID());
@@ -93,6 +96,13 @@ export function Vender() {
       }
     },
   });
+
+  /**
+   * Lo que el backend dijo del NIT, para marcarlo en su propio campo en vez de
+   * mandar a la maestra a leer un aviso general arriba. La comprobacion la hace
+   * el backend, que es el que tiene el algoritmo; aca solo se pinta.
+   */
+  const errorDeNit = camposInvalidos(cobrar.error)['compradorNit'];
 
   function alEscribir(evento: React.KeyboardEvent<HTMLInputElement>) {
     if (evento.key !== 'Enter') return;
@@ -335,6 +345,36 @@ export function Vender() {
                   placeholder="Nombre de quien compra"
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 />
+              </label>
+
+              {/*
+                El NIT se pide ACA y no despues: la directora emite las facturas
+                en el portal de la SAT al final del dia, y a esa hora ya no hay a
+                quien preguntarle. Dejarlo vacio es consumidor final, que es el
+                caso normal.
+              */}
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-slate-700">
+                  NIT <span className="font-normal text-slate-400">(para la factura)</span>
+                </span>
+                <input
+                  value={compradorNit}
+                  onChange={(evento) => setCompradorNit(evento.target.value)}
+                  placeholder="C/F"
+                  inputMode="text"
+                  autoComplete="off"
+                  aria-describedby="ayuda-nit"
+                  aria-invalid={errorDeNit ? true : undefined}
+                  className={`w-full rounded-md border px-3 py-2 text-sm ${
+                    errorDeNit ? 'border-red-400 bg-red-50' : 'border-slate-300'
+                  }`}
+                />
+                <span
+                  id="ayuda-nit"
+                  className={`mt-1 block text-xs ${errorDeNit ? 'text-red-700' : 'text-slate-500'}`}
+                >
+                  {errorDeNit ?? 'Vacío o C/F es consumidor final. Sirve el NIT o el DPI.'}
+                </span>
               </label>
 
               <label className="block">

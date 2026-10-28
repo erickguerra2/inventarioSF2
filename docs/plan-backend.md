@@ -371,6 +371,7 @@ model Venta {
   correlativo       Int         @unique      // consecutivo visible, desde secuencia de BD
   alumnoId          String?
   compradorNombre   String?                  // si el comprador no está en el sistema
+  compradorNit      String?                  // para la factura de la SAT; null = consumidor final
   estado            EstadoVenta @default(PAGADA)
   metodoPago        MetodoPago
   referenciaPago    String?                  // no. de boleta / transferencia
@@ -590,6 +591,7 @@ Idempotency-Key: 3f1c...
 {
   "alumnoId": "ck...",              // opcional
   "compradorNombre": "María López", // si no hay alumnoId
+  "compradorNit": "36029785",       // opcional; vacío o "C/F" = consumidor final
   "metodoPago": "EFECTIVO",
   "descuentoCentavos": 0,
   "lineas": [
@@ -1195,9 +1197,11 @@ Se dejan fuera **a propósito**, con el modelo preparado para recibirlas:
   **no** hacer. Si algún día se quiere ("¿cuántas bolsas puedo armar con los cuadernos que
   hay?"), los componentes se vuelven `InventoryItem` y la bolsa adquiere una receta. Es una
   decisión grande: no se toma por adelantado.
-- **Facturación electrónica (FEL / SAT).** Si el colegio debe facturar, se integra un
-  certificador. El modelo ya tiene lo necesario (correlativo, líneas, snapshots, anulación);
-  faltaría el NIT del comprador y el estado ante SAT.
+- **Facturación electrónica (FEL / SAT).** Hoy la directora emite las facturas a mano en el
+  portal de la SAT, con los recibos del día enfrente; por eso la venta ya guarda el
+  `compradorNit` y el recibo lo imprime. Si algún día se automatiza, se integra un
+  certificador: el modelo ya tiene correlativo, líneas, snapshots, anulación y NIT, y lo
+  único que faltaría es el estado de cada venta ante la SAT.
 - **Pagos parciales / cuotas.** Hoy una venta se paga completa. Las cuotas requieren una
   tabla `Pago` y saldo por venta.
 - **Acceso de lectura para los papás.** Cuando toque, son endpoints públicos de solo lectura

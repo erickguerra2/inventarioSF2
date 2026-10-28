@@ -40,6 +40,16 @@ export function mensajeDeError(error: unknown): string {
     }
   }
 
+  /**
+   * "Los datos enviados no son válidos" no le sirve a nadie: el motivo de
+   * verdad viene por campo. Se juntan, porque casi siempre es uno solo y verlo
+   * ahorra adivinar cual de los campos esta mal.
+   */
+  if (error.code === 'VALIDACION') {
+    const motivos = Object.values(camposInvalidos(error));
+    if (motivos.length > 0) return motivos.join('. ');
+  }
+
   return MENSAJES[error.code] ?? error.message;
 }
 

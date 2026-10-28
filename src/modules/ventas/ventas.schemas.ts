@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { booleanoDeQuery, centavos, idSchema, textoCorto } from '../../shared/validacion.js';
+import {
+  booleanoDeQuery,
+  centavos,
+  idSchema,
+  nitDeComprador,
+  textoCorto,
+} from '../../shared/validacion.js';
 
 const fechaDesde = z
   .string()
@@ -27,6 +33,9 @@ export const crearVentaBodySchema = z.object({
   // correlativo es el comprobante. El padron de alumnos es Fase 6.
   alumnoId: idSchema.optional(),
   compradorNombre: textoCorto.optional(),
+  // Para la factura de la SAT. Vacio o "C/F" = consumidor final, que es el caso
+  // normal. Hay que pedirlo en la ventanilla: despues no hay a quien preguntarle.
+  compradorNit: nitDeComprador.optional(),
   referenciaPago: textoCorto.optional(), // no. de boleta o transferencia
   descuentoCentavos: centavos.optional(),
   // El precio NO se recibe del cliente: lo pone el servidor. Si el frontend

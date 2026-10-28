@@ -511,6 +511,116 @@ describe('recibo', () => {
   });
 });
 
+/**
+ * El NIT existe para una sola cosa: que la directora pueda emitir la factura en
+ * el portal de la SAT al final del dia. De ahi las dos reglas que se prueban
+ * aqui: que llegue al recibo, y que NINGUN NIT impida cobrar.
+ */
+describe('NIT del comprador', () => {
+  it('guarda el NIT normalizado y lo pone en el recibo', async () => {
+    const venta = await venderOk('maestra', {
+      metodoPago: 'EFECTIVO',
+      compradorNombre: 'Ana López',
+      compradorNit: '3602978-5', // clasico, con guion
+      lineas: [{ itemId: itemM, cantidad: 1 }],
+    });
+
+    // Se guarda sin guion: una sola forma del dato en la base.
+    expect(venta.compradorNit).toBe('36029785');
+    expect(venta.nitPorRevisar).toBe(false);
+
+    const recibo = (await maestra.get(`/api/v1/ventas/${venta.id}/recibo`)).json().data;
+    expect(recibo.nit).toBe('36029785');
+  });
+
+  it('acepta el NIT que sale del DPI, de 13 digitos', async () => {
+    const venta = await venderOk('maestra', {
+      metodoPago: 'EFECTIVO',
+      compradorNit: '2510 86345 0101',
+      lineas: [{ itemId: itemM, cantidad: 1 }],
+    });
+
+    expect(venta.compradorNit).toBe('2510863450101');
+    // No se opina del verificador del CUI: el RENAP no publica el algoritmo.
+    expect(venta.nitPorRevisar).toBe(false);
+  });
+
+  it.each(['', 'CF', 'C/F'])('trata %s como consumidor final, y el recibo dice C/F', async (dado) => {
+    const venta = await venderOk('maestra', {
+      metodoPago: 'EFECTIVO',
+      compradorNit: dado,
+      lineas: [{ itemId: itemM, cantidad: 1 }],
+    });
+
+    expect(venta.compradorNit).toBeNull();
+
+    const recibo = (await maestra.get(`/api/v1/ventas/${venta.id}/recibo`)).json().data;
+    expect(recibo.nit).toBe('C/F');
+  });
+
+  it('sin NIT el recibo tambien dice C/F', async () => {
+    const venta = await venderOk('maestra', {
+      metodoPago: 'EFECTIVO',
+      lineas: [{ itemId: itemM, cantidad: 1 }],
+    });
+
+    expect(venta.compradorNit).toBeNull();
+    expect((await maestra.get(`/api/v1/ventas/${venta.id}/recibo`)).json().data.nit).toBe('C/F');
+  });
+
+  /**
+   * Esta es la prueba que importa de verdad. Un verificador que no cuadra se
+   * COBRA igual y se marca, porque rechazarlo seria dejar a la maestra sin poder
+   * vender con el papa enfrente, y el recibo -no la factura- es el comprobante.
+   */
+  it('cobra igual con un verificador que no cuadra, y lo marca', async () => {
+    const venta = await venderOk('maestra', {
+      metodoPago: 'EFECTIVO',
+      compradorNit: '42932-6', // el correcto termina en 5
+      lineas: [{ itemId: itemM, cantidad: 1 }],
+    });
+
+    expect(venta.compradorNit).toBe('429326');
+    expect(venta.nitPorRevisar).toBe(true);
+
+    const recibo = (await maestra.get(`/api/v1/ventas/${venta.id}/recibo`)).json().data;
+    expect(recibo.nit).toBe('429326');
+    expect(recibo.nitPorRevisar).toBe(true);
+  });
+
+  it.each(['abc', '1234567A', '12345678901234'])(
+    'rechaza %s, que no se parece a un NIT',
+    async (valor) => {
+      const respuesta = await vender('maestra', {
+        metodoPago: 'EFECTIVO',
+        compradorNit: valor,
+        lineas: [{ itemId: itemM, cantidad: 1 }],
+      });
+
+      expect(respuesta.statusCode).toBe(400);
+    },
+  );
+
+  it('rechaza un departamento que no existe en un DPI de 13', async () => {
+    const respuesta = await vender('maestra', {
+      metodoPago: 'EFECTIVO',
+      compradorNit: '2510863459901', // departamento 99
+      lineas: [{ itemId: itemM, cantidad: 1 }],
+    });
+
+    expect(respuesta.statusCode).toBe(400);
+
+    // El motivo concreto va por campo, que es lo que el formulario pinta al lado
+    // del input. El `message` de arriba es el generico de toda validacion.
+    const campos = respuesta.json().error.details.campos as Array<{
+      campo: string;
+      mensaje: string;
+    }>;
+    const problema = campos.find((campo) => campo.campo === 'compradorNit');
+    expect(problema?.mensaje).toMatch(/departamento/i);
+  });
+});
+
 describe('el invariante sigue en pie despues de todo esto', () => {
   it('stockActual == SUM(movimientos) para todos los items', async () => {
     const respuesta = await admin.get('/api/v1/admin/verificar-integridad');

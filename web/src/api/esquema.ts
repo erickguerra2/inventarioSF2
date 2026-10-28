@@ -1697,6 +1697,7 @@ export interface paths {
                         metodoPago: "EFECTIVO" | "TRANSFERENCIA" | "DEPOSITO" | "TARJETA";
                         alumnoId?: string;
                         compradorNombre?: string;
+                        compradorNit?: string;
                         referenciaPago?: string;
                         descuentoCentavos?: number;
                     };

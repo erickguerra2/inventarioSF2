@@ -61,6 +61,13 @@ export type Venta = {
   descuentoCentavos: number;
   totalCentavos: number;
   comprador: { tipo: 'ALUMNO' | 'NOMBRE'; id: string | null; nombre: string } | null;
+  /** NIT para la factura de la SAT, normalizado y sin guiones. null = consumidor final. */
+  compradorNit: string | null;
+  /**
+   * El backend ya decidio si este NIT merece una segunda mirada antes de
+   * facturar. Es un aviso: nunca impidio cobrar.
+   */
+  nitPorRevisar: boolean;
   /** Quien vendio. No es editable: es la base del corte de caja. */
   vendidoPor: { id: string; usuario: string; nombre: string };
   anulacion: { en: string; motivo: string; por: string | null } | null;

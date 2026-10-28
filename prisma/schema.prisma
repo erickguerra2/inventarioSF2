@@ -218,6 +218,11 @@ model Venta {
   correlativo       Int         @unique // consecutivo visible, desde venta_correlativo_seq
   alumnoId          String?
   compradorNombre   String? // si el comprador no esta en el sistema
+  // NIT para la factura que la directora emite en el portal de la SAT. null =
+  // consumidor final, que es el caso normal. Se guarda normalizado y sin
+  // guiones, porque hoy conviven el NIT clasico y el que sale del DPI, y este
+  // ultimo ya no se escribe con guion (ver src/shared/nit.ts).
+  compradorNit      String?
   estado            EstadoVenta @default(PAGADA)
   metodoPago        MetodoPago
   referenciaPago    String? // no. de boleta / transferencia

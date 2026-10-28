@@ -2589,6 +2589,10 @@
                     "minLength": 1,
                     "maxLength": 200
                   },
+                  "compradorNit": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
                   "referenciaPago": {
                     "type": "string",
                     "minLength": 1,

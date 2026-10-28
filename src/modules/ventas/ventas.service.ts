@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { auditar } from '../../shared/auditoria.js';
 import { BadRequest, Conflict, NotFound } from '../../shared/errors.js';
 import type { UsuarioSesion } from '../../shared/middleware/auth.js';
+import { nitParaMostrar, nitSospechoso } from '../../shared/nit.js';
 import { paginar, type Paginacion } from '../../shared/pagination.js';
 import { prisma } from '../../shared/prisma.js';
 import { registrarMovimiento } from '../inventario/inventario.service.js';
@@ -36,6 +37,14 @@ function presentarVenta(venta: VentaConDetalle) {
       : venta.compradorNombre
         ? { tipo: 'NOMBRE' as const, id: null, nombre: venta.compradorNombre }
         : null,
+    // Para la factura del portal de la SAT. null = consumidor final.
+    compradorNit: venta.compradorNit,
+    /**
+     * Si conviene que alguien le eche un ojo al NIT antes de facturar. Lo decide
+     * el backend y no el frontend para no tener el algoritmo del verificador en
+     * dos lugares. Nunca impidio cobrar: es un aviso, no un error.
+     */
+    nitPorRevisar: nitSospechoso(venta.compradorNit),
     // Quien vendio. No es editable nunca: es la base del corte de caja.
     vendidoPor: {
       id: venta.usuario.id,
@@ -168,6 +177,7 @@ export async function registrarVenta(
           correlativo,
           alumnoId: datos.alumnoId ?? null,
           compradorNombre: datos.compradorNombre ?? null,
+          compradorNit: datos.compradorNit?.valor ?? null,
           metodoPago: datos.metodoPago,
           referenciaPago: datos.referenciaPago ?? null,
           subtotalCentavos,
@@ -334,6 +344,10 @@ export async function recibo(id: string, usuario: UsuarioSesion) {
     estado: venta.estado,
     fecha: venta.creadoEn,
     comprador: venta.comprador?.nombre ?? 'Venta al público',
+    // El recibo es lo que la directora tiene enfrente cuando factura en el
+    // portal de la SAT, asi que el NIT va impreso, con "C/F" cuando no lo dieron.
+    nit: nitParaMostrar(venta.compradorNit),
+    nitPorRevisar: venta.nitPorRevisar,
     atendidoPor: venta.vendidoPor.nombre,
     metodoPago: venta.metodoPago,
     referenciaPago: venta.referenciaPago,

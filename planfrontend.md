@@ -536,12 +536,21 @@ Para que no pierdas tiempo en cosas que el backend no soporta todavía:
 
 ## 10. Preguntas abiertas que te afectan
 
-1. **Para las facturas del portal de la SAT, ¿hace falta el NIT del comprador?** La
-   directora usa los recibos del día para emitir las facturas. Hoy la venta guarda el nombre
-   de quien compra, pero **no el NIT**. Si las facturas no son todas a consumidor final, ese
-   dato hay que pedirlo *en el momento de la venta*: después no hay a quién preguntarle.
-   Agregarlo es un campo de texto en la venta y una línea en el recibo — poco trabajo, pero
-   hay que decidirlo antes de empezar a vender, no después.
+1. ~~**Para las facturas del portal de la SAT, ¿hace falta el NIT del comprador?**~~
+   **CERRADA: sí, y ya está.** La venta tiene `compradorNit`, el recibo lo imprime y la lista
+   de ventas lo muestra debajo del nombre, que es la lista de trabajo para facturar.
+
+   Lo que salió al hacerlo y vale saber: **hoy conviven tres formas de NIT.** El clásico
+   (cuerpo + verificador 0-9 o K, con guion), los **primeros 9 dígitos del CUI del DPI** —que
+   es lo que recibe todo contribuyente individual nuevo desde octubre de 2023— y el **CUI
+   completo de 13 dígitos**, hacia donde la SAT está llevando la armonización.
+
+   El verificador del CUI **no** se calcula como el del NIT clásico, y ni la SAT ni el RENAP
+   publican su algoritmo. Por eso **ningún NIT bloquea una venta**: se valida el formato, se
+   comprueba el verificador solo cuando la forma del dato dice sin ambigüedad que es clásico,
+   y si no cuadra se cobra igual y se marca "revisar". Rechazar un NIT sería dejar a la
+   maestra sin poder cobrar con el papá enfrente, y el comprobante es el recibo, no la
+   factura. Dejar el campo vacío es consumidor final, que es el caso normal.
 2. **¿Las maestras venden desde una compu compartida o cada una desde la suya?** Si es
    compartida, el botón de "cerrar sesión" tiene que ser enorme y visible, y conviene pensar
    en un cierre por inactividad en el cliente.

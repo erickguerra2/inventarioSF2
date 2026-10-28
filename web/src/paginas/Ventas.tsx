@@ -154,10 +154,23 @@ export function Ventas() {
                       <td className="py-3 pr-3 whitespace-nowrap">
                         {fechaHoraCorta(venta.creadoEn)}
                       </td>
+                      {/*
+                        El NIT va debajo del nombre y no en su propia columna:
+                        esta tabla es la lista de trabajo para facturar en el
+                        portal de la SAT, y ahi nombre y NIT se leen juntos.
+                      */}
                       <td className="py-3 pr-3">
                         {venta.comprador?.nombre ?? (
                           <span className="text-slate-400">Venta al público</span>
                         )}
+                        <span className="mt-0.5 block text-xs tabular-nums text-slate-500">
+                          {venta.compradorNit ?? 'C/F'}
+                          {venta.nitPorRevisar ? (
+                            <span className="ml-1 text-amber-700" title="El dígito verificador no cuadra">
+                              · revisar
+                            </span>
+                          ) : null}
+                        </span>
                       </td>
                       {administradora ? (
                         <td className="py-3 pr-3">{venta.vendidoPor.nombre}</td>
