@@ -341,13 +341,22 @@ Dos cosas que salieron al hacerlo:
 
 ## 7. Guía de despliegue, paso a paso
 
-Hay que tocar cuatro lugares, **en este orden**: Neon (la base), Render (el backend), el
-hosting del colegio (la página) y GitHub (el ping y el respaldo). El orden importa porque cada
-paso necesita un dato del anterior.
+Hay que tocar cinco lugares, **en este orden**: GitHub (subir el código), Neon (la base),
+Render (el backend), otra vez la computadora (compilar la página) y el hosting del colegio
+(subirla). El orden no es capricho: **la URL de Render queda incrustada dentro del JavaScript
+compilado**, así que la página no se puede compilar —ni mandar a nadie— hasta que el backend
+exista.
 
-Antes de empezar hay que tener: el repositorio subido a GitHub, acceso al panel del hosting, y
-decidido el subdominio donde va a vivir el inventario. Las cuentas de Neon y de Render son
-gratuitas y se crean con un correo.
+Lo que ya quedó decidido y no hay que volver a pensar:
+
+| | |
+|---|---|
+| Subdominio | `https://inventario.ccsf2.edu.gt`, confirmado, con HTTPS funcionando |
+| Repositorio | `Qu3zada22/inventarioSF2`, **público** (ver §7.5) |
+| Región | Neon en **AWS us-east-1** y Render en **Virginia**: tienen que ser la misma |
+
+Hace falta tener a mano: acceso al panel del hosting —o alguien que lo tenga— y un correo para
+las cuentas de Neon y Render, que son gratuitas.
 
 Lo que ya está escrito en el repositorio y no hay que inventar:
 
@@ -357,6 +366,23 @@ Lo que ya está escrito en el repositorio y no hay que inventar:
 | [`.github/workflows/ping.yml`](../.github/workflows/ping.yml) | El ping en horario de colegio |
 | [`.github/workflows/respaldo.yml`](../.github/workflows/respaldo.yml) | El respaldo diario cifrado |
 | [`web/public/.htaccess`](../web/public/.htaccess) | Las rutas, la compresión y el caché en el hosting |
+
+---
+
+### 7.0 GitHub — subir el código
+
+**Render despliega desde GitHub, no desde tu computadora.** Si el repositorio no está al día,
+Render construye la versión vieja: sin `render.yaml`, sin los workflows y sin el campo de NIT.
+Es el error más fácil de cometer y el más difícil de ver, porque Render dice "deploy exitoso"
+igual.
+
+```bash
+git push origin main
+```
+
+Para comprobarlo, en GitHub tiene que verse `render.yaml` en la raíz y la carpeta
+`.github/workflows/` con `ping.yml` y `respaldo.yml`. Si no están ahí, no sigas: nada de lo
+que viene va a funcionar.
 
 ---
 
@@ -392,9 +418,11 @@ respaldo en GitHub), así que conviene dejarla a mano — y en ningún archivo d
    node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
    ```
 
-2. Si el subdominio **no** va a ser `inventario.ccsf2.edu.gt`, cambiar `CORS_ORIGINS` y
-   `MEDIA_BASE_URL` en [`render.yaml`](../render.yaml) antes de seguir. Van sin barra final y
-   apuntan los dos al dominio de la **página**, no al de la API.
+2. **`render.yaml` ya viene con el subdominio correcto**, así que no hay que tocarlo. Para
+   que conste: `CORS_ORIGINS` y `MEDIA_BASE_URL` apuntan los dos a `https://inventario.ccsf2.edu.gt`
+   —el dominio de la **página**, no el de la API— y van **sin barra final**. El navegador manda
+   el origen sin barra, y si no coincide carácter por carácter, el login responde bien y la
+   pantalla siguiente rebota al login, que es de los errores más desconcertantes que hay.
 3. En **render.com**: `New` → `Blueprint` → elegir el repositorio. Render lee `render.yaml` y
    pide los dos valores que no están ahí: `DATABASE_URL` (la cadena del paso 7.1) y
    `SESSION_SECRET` (el del paso 1).
@@ -459,16 +487,27 @@ tallas, las bolsas de útiles y la usuaria `admin`.
    configuración que se pueda editar en el servidor: si algún día cambia la dirección del
    backend, hay que volver a compilar y volver a subir.
 
-2. Subir **todo** el contenido de `web/dist/` a la carpeta del subdominio en el hosting.
-   Son unos 1.7 MB contando las fotos.
+2. **Vaciar la carpeta del subdominio** antes de subir nada. Ahí vive todavía el proyecto del
+   alumno, y subir encima no lo borra: `index.html` se reemplaza, pero todo lo demás sigue
+   servido. En particular `ims.js`, que publica contraseñas del personal en texto plano y a
+   octubre de 2026 seguía respondiendo 200. Y como el `.htaccess` solo manda a `index.html` lo
+   que **no** corresponde a un archivo real, un `ims.js` que quede ahí se seguiría sirviendo
+   tal cual, con la aplicación nueva funcionando por encima y nadie enterándose.
+
+   > Borrar el archivo no deshace lo ya expuesto: esas contraseñas estuvieron públicas y hay
+   > que cambiarlas donde se usen. Las usuarias del sistema nuevo son independientes, así que
+   > no heredan el problema — pero que nadie reutilice la vieja al crear su cuenta.
+
+3. Subir **todo** el contenido de `web/dist/` a la carpeta ya vacía. Son unos 1.7 MB contando
+   las fotos.
 
    > **El `.htaccess` es un archivo oculto.** En FileZilla hay que activar
    > *Servidor → Forzar mostrar archivos ocultos*, y en el administrador de archivos de
    > Hostinger, la opción equivalente. Si no se sube, la aplicación parece funcionar hasta que
    > alguien recarga la página.
 
-3. Comprobar que subió bien: escribir `https://EL-SUBDOMINIO/corte` **directo en la barra de
-   direcciones**, no navegando desde el menú. Si sale la pantalla de corte (o el login), el
+4. Comprobar que subió bien: escribir `https://inventario.ccsf2.edu.gt/corte` **directo en la
+   barra de direcciones**, no navegando desde el menú. Si sale la pantalla de corte (o el login), el
    `.htaccess` está puesto. Si sale un 404 del servidor, no subió.
 
 ---
@@ -486,6 +525,22 @@ En el repositorio, `Settings` → `Secrets and variables` → `Actions`:
 > **La `RESPALDO_PASSPHRASE` no se puede perder.** Es lo único con lo que se descifran los
 > respaldos; sin ella los archivos no sirven para nada. Que viva en el gestor de contraseñas
 > de la directora, no solo en GitHub.
+
+> **El repositorio es público, y eso corta para los dos lados.**
+>
+> A favor: GitHub Actions no cobra minutos en repositorios públicos, así que el ping cada 10
+> minutos sale gratis sin pensarlo.
+>
+> En contra: **los artefactos del respaldo los puede descargar cualquiera.** Por eso el
+> volcado va cifrado con AES-256 y no en claro — el volcado trae los hashes de las contraseñas
+> de las usuarias. Con el repositorio público, esa passphrase es lo único que separa el
+> inventario del colegio de cualquier persona en internet: que sea larga y que no se use en
+> ningún otro lado.
+>
+> Si en algún momento lo pasan a privado, **el ping de GitHub Actions deja de servir**: son 72
+> ejecuciones al día por 26 días, y GitHub cobra un minuto mínimo por ejecución, o sea 1,872
+> de los 2,000 minutos gratis mensuales. Con el respaldo encima, se pasa. En ese caso hay que
+> mover el ping a cron-job.org (§7.7), que además resuelve lo de los 60 días.
 
 Después, en la pestaña `Actions`, correr **Ping** y **Respaldo** a mano una vez
 (`Run workflow`). Es la forma de saber que están bien configurados sin esperar a que toque el
