@@ -54,15 +54,33 @@ jobs:
           # pg_dump va dentro de un contenedor para fijar la version 17, la misma
           # de Neon. El runner de Ubuntu trae la 16, y un pg_dump mas viejo que el
           # servidor se niega a trabajar.
+          # La cadena de DATABASE_URL es la que entiende PRISMA, y trae
+          # parametros que PostgreSQL no conoce: connection_limit, pool_timeout,
+          # schema. pg_dump habla libpq directo y se niega con
+          # "invalid URI query parameter". Asi que se le quitan aca, y no se
+          # guarda un segundo secreto casi igual al primero: dos cadenas que hay
+          # que mantener a mano terminan desincronizadas justo cuando importa.
+          #
+          # sslmode SI es de libpq y tiene que sobrevivir: Neon lo exige.
+          URL_VOLCADO="$DATABASE_URL"
+          for parametro in connection_limit pool_timeout pgbouncer schema socket_timeout statement_cache_size; do
+            URL_VOLCADO=$(printf '%s' "$URL_VOLCADO" | sed -E "s/([?&])${parametro}=[^&]*&?/\1/g")
+          done
+          # Puede quedar un ? o un & colgando al final.
+          URL_VOLCADO=$(printf '%s' "$URL_VOLCADO" | sed -E 's/[?&]+$//')
+          # Exportada a proposito: `docker run -e VAR` lee del entorno exportado,
+          # no de las variables sueltas del script.
+          export URL_VOLCADO
+
           # La otra causa posible del mismo sintoma: que la variable no cruce al
           # contenedor. Se comprueba aparte para no confundir un problema con el
           # otro, y sin imprimir el valor.
-          docker run --rm -e DATABASE_URL postgres:17-alpine \
-            sh -c '[ -n "$DATABASE_URL" ]' \
-            || { echo "DATABASE_URL no llego al contenedor de Docker."; exit 1; }
+          docker run --rm -e URL_VOLCADO postgres:17-alpine \
+            sh -c '[ -n "$URL_VOLCADO" ]' \
+            || { echo "La cadena no llego al contenedor de Docker."; exit 1; }
 
-          docker run --rm -e DATABASE_URL postgres:17-alpine \
-            sh -c 'pg_dump "$DATABASE_URL" --no-owner --no-privileges' > "$NOMBRE.sql"
+          docker run --rm -e URL_VOLCADO postgres:17-alpine \
+            sh -c 'pg_dump "$URL_VOLCADO" --no-owner --no-privileges' > "$NOMBRE.sql"
 
           # Un volcado vacio o truncado es peor que ninguno, porque da falsa
           # tranquilidad. Si no trae el final que escribe pg_dump, se cae aqui.
