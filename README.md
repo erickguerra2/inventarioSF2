@@ -1,14 +1,21 @@
 # Inventario CCSF2
 
-Backend del inventario de **uniformes** y **bolsas de útiles** del colegio.
+Inventario de **uniformes** y **bolsas de útiles** del Colegio Centro Cultural Sagrada
+Familia 2. Lo usan la directora, que ingresa y administra todo, y las maestras que ayudan a
+vender en temporada.
 
-- El diseño completo, las reglas de negocio y el contrato de API están en
-  [docs/plan-backend.md](docs/plan-backend.md). Si algo de este README y el plan se
-  contradicen, el plan manda.
-- El análisis del servidor del colegio y qué cambia al desplegar está en
-  [docs/despliegue.md](docs/despliegue.md).
-- Los datos de uniformes del sitio anterior están en
-  [uniformes-ccsf2.md](uniformes-ccsf2.md).
+Son tres piezas: una API en Node, una página en React y una base PostgreSQL.
+
+| Dónde mirar | Qué hay |
+|---|---|
+| [docs/plan-backend.md](docs/plan-backend.md) | El diseño, las reglas de negocio y el contrato de API. **Si este README y el plan se contradicen, manda el plan.** |
+| [docs/despliegue.md](docs/despliegue.md) | Por qué se eligió este despliegue y la guía paso a paso (§7) |
+| [planfrontend.md](planfrontend.md) | El plan del frontend y las decisiones de pantalla |
+| [uniformes-ccsf2.md](uniformes-ccsf2.md) | Los datos de uniformes del sitio anterior |
+| [openapi.json](openapi.json) | El contrato, generado desde los esquemas Zod |
+
+Para quien va a *usar* el sistema y no a tocarlo, hay un [manual ilustrado](https://claude.ai/artifact/LimQ5Ks8qh2KrJNeMEYPZE)
+aparte, con cada caso de uso marcado sobre la pantalla real.
 
 ## Lo que hay que entender antes de tocar el código
 
@@ -23,6 +30,10 @@ Backend del inventario de **uniformes** y **bolsas de útiles** del colegio.
    `stockActual == SUM(movimientos.cantidad)`.
 4. **El dinero va en centavos enteros.** `Q 125.50` se guarda y se transmite como `12550`.
    El formateo a quetzales es del frontend.
+5. **Ningún NIT impide cobrar.** Hoy conviven tres formas de NIT y el verificador del CUI no
+   es público, así que [`src/shared/nit.ts`](src/shared/nit.ts) valida el formato, comprueba
+   el dígito solo cuando el dato dice sin ambigüedad que es un NIT clásico, y si no cuadra lo
+   guarda marcado. Rechazarlo sería dejar a la maestra sin poder vender con el papá enfrente.
 
 ## Arranque
 
@@ -56,9 +67,17 @@ npm --prefix web install
 npm --prefix web run dev     # http://127.0.0.1:5173
 ```
 
-El Vite de `web/` hace proxy de `/api` al backend en el puerto 3000, para que la cookie de
-sesión sea del mismo origen que la página — igual que en producción, donde nginx sirve los
-estáticos y hace proxy de `/api`.
+El Vite de `web/` hace proxy de `/api` al backend en el puerto 3000, para que en desarrollo
+la cookie de sesión sea del mismo origen que la página y no haya CORS.
+
+**En producción no comparten dominio**: la página vive en el hosting del colegio y la API en
+Render. Eso obliga a dos cosas que es fácil olvidar al compilar:
+
+- El frontend se compila con `VITE_API_URL` apuntando a la API. **Vite incrusta esa URL dentro
+  del JavaScript**, así que no es un archivo que se edite en el servidor: si cambia la
+  dirección del backend, hay que volver a compilar y volver a subir.
+- El backend arranca con `COOKIE_SAMESITE=none`, o el navegador no manda la cookie de sesión
+  y todo responde 401.
 
 Para entrar, los usuarios del seed (`admin`, `lucia.m`, `ana.c`) con la contraseña de
 `SEED_ADMIN_PASSWORD`.
@@ -80,7 +99,7 @@ Para entrar, los usuarios del seed (`admin`, `lucia.m`, `ana.c`) con la contrase
 | `npm run db:up` / `npm run db:down` | Postgres en Docker |
 | `npm run db:reset` | Borra y reconstruye la base. **Destructivo** |
 
-## Endpoints disponibles hoy (Fase 1)
+## La API
 
 Todo bajo `/api/v1`. El contenido de cada respuesta va en `data`, y cuando `data` es una lista
 los metadatos (`meta`, `resumen`, `totales`, `notas`) van como hermanos, no dentro. Errores:
@@ -159,6 +178,7 @@ Idempotency-Key: 3f1c8e52-...        <-- obligatoria
 {
   "metodoPago": "EFECTIVO",
   "compradorNombre": "María López",
+  "compradorNit": "3602978-5",       // opcional; vacío o "C/F" = consumidor final
   "lineas": [
     { "itemId": "...", "cantidad": 2 },
     { "itemId": "...", "cantidad": 1 }
@@ -298,6 +318,32 @@ Dos detalles de seguridad que conviene no deshacer sin pensarlo:
   equivocó. Son 5 intentos fallidos y 15 minutos de espera; los intentos exitosos no
   cuentan.
 
+## Despliegue
+
+El hosting del colegio no puede correr este backend: es alojamiento compartido y no permite
+dejar un proceso corriendo. Por eso el sistema vive en tres lugares, y cuesta Q 0:
+
+| Pieza | Dónde | Por qué ahí |
+|---|---|---|
+| La página | Hosting del colegio | Son archivos estáticos; ya lo tienen pagado |
+| La API | Render, plan gratuito | Es lo que necesita un proceso vivo |
+| La base | Neon, plan gratuito | La única que no caduca ni se pausa sola |
+
+Dos detalles que parecen caprichos y no lo son:
+
+- **El ping corre solo en horario de colegio**, no 24/7. Render da 750 horas de instancia al
+  mes y al agotarlas suspende todos los servicios gratuitos hasta el mes siguiente; un mes de
+  31 días tiene 744. De 6:00 a 18:00, de lunes a sábado, son unas 312.
+- **El ping le pega a `/health` y no a `/health/db`**, para que Neon siga durmiendo entre
+  ventas de verdad y no se gaste su cuota de cómputo despertando una base que nadie usa.
+
+Los respaldos son el riesgo real, no el arranque: ningún plan gratuito los hace. Por eso
+`respaldo.yml` corre `pg_dump` a diario y guarda el volcado **cifrado con AES-256**, porque
+incluye los hashes de las contraseñas. La restauración está probada y el procedimiento está
+en la §7.8 de [docs/despliegue.md](docs/despliegue.md).
+
+La guía completa, paso a paso, es la [§7 de docs/despliegue.md](docs/despliegue.md).
+
 ## Estructura
 
 ```
@@ -315,9 +361,23 @@ prisma/
   schema.prisma           esquema completo (incluye lo de fases siguientes)
   migrations/             incluye los CHECK de la base, escritos a mano
   seed.ts                 datos de uniformes-ccsf2.md
+  shared/nit.ts           NIT clásico y el que sale del DPI
+prisma/
+  schema.prisma           esquema completo
+  migrations/             incluye los CHECK de la base, escritos a mano
+  seed.ts                 datos de uniformes-ccsf2.md
 tests/
   unit/                   lógica pura
   integration/            endpoints y reglas, contra Postgres real
+web/
+  src/                    la página (React + Vite + Tailwind)
+  public/uniformes/       las fotos, en dos tamaños
+  public/.htaccess        rutas, compresión y caché en el hosting Apache
+render.yaml               toda la configuración del backend en Render
+.github/workflows/
+  ci.yml                  typecheck, build, pruebas y openapi al día
+  ping.yml                despierta el backend en horario de colegio
+  respaldo.yml            pg_dump diario contra Neon, cifrado
 ```
 
 Capas: **routes** traducen HTTP ↔ dominio (validan con Zod y llaman al servicio, cero
@@ -334,7 +394,8 @@ accede a datos.
 | 3 — Auth, usuarios y permisos | **Listo** |
 | 4 — Ventas | **Listo** |
 | 5 — Reportes, corte de caja, CSV y OpenAPI | **Listo** |
-| 5b — Despliegue en el servidor (§13 del plan) | Pendiente: falta saber qué permite el hosting |
+| 5b — Despliegue | **Listo**: ver más abajo |
+| 6 — Frontend completo (venta, inventario, reportes, usuarias) | **Listo** |
 
 Dos cosas que conviene saber mientras tanto:
 
