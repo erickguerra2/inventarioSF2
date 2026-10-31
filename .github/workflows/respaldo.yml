@@ -34,11 +34,33 @@ jobs:
             exit 1
           fi
 
+          # pg_dump, si el argumento no le parece una URI, lo toma como NOMBRE de
+          # base y se conecta al socket local. El error que suelta entonces habla
+          # de "/var/run/postgresql" y no dice nada del verdadero problema, que
+          # casi siempre es que al pegar el secreto se colaron comillas o un
+          # espacio. Mejor fallar aca, diciendolo.
+          case "$DATABASE_URL" in
+            postgres://*|postgresql://*) ;;
+            *)
+              echo "El secreto DATABASE_URL no empieza con postgresql://"
+              echo "Suele ser que al pegarlo se colaron comillas o un espacio."
+              echo "Volve a ponerlo con: gh secret set DATABASE_URL"
+              exit 1
+              ;;
+          esac
+
           NOMBRE="respaldo-$(date -u +%Y-%m-%d)"
 
           # pg_dump va dentro de un contenedor para fijar la version 17, la misma
           # de Neon. El runner de Ubuntu trae la 16, y un pg_dump mas viejo que el
           # servidor se niega a trabajar.
+          # La otra causa posible del mismo sintoma: que la variable no cruce al
+          # contenedor. Se comprueba aparte para no confundir un problema con el
+          # otro, y sin imprimir el valor.
+          docker run --rm -e DATABASE_URL postgres:17-alpine \
+            sh -c '[ -n "$DATABASE_URL" ]' \
+            || { echo "DATABASE_URL no llego al contenedor de Docker."; exit 1; }
+
           docker run --rm -e DATABASE_URL postgres:17-alpine \
             sh -c 'pg_dump "$DATABASE_URL" --no-owner --no-privileges' > "$NOMBRE.sql"
 

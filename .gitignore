@@ -12,3 +12,10 @@ Proyecto de practicas.zip
 storage/
 coverage/
 .DS_Store
+
+# Archivos donde uno pega un secreto "un momentito" y despues se olvida. Este
+# repositorio es publico: un `git add -A` distraido los publica.
+secret.txt
+secret*.txt
+*.secret
+*secreto*.txt
